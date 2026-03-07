@@ -1,0 +1,8 @@
+{
+  "name": "SpeakFlow AI",
+  "description": "An intelligent impromptu speaking coach that simulates real-world pressure and provides deep AI analysis of your speech logic, delivery, and structure.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
