@@ -6,7 +6,8 @@ export enum AppStep {
   STAGE = 'STAGE',
   ANALYSIS = 'ANALYSIS',
   DRILL = 'DRILL',
-  DEBATE_SESSION = 'DEBATE_SESSION'
+  DEBATE_SESSION = 'DEBATE_SESSION',
+  PRICING = 'PRICING'
 }
 
 export enum SessionMode {

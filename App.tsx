@@ -10,6 +10,10 @@ import { DebateSession } from './components/DebateSession';
 import { analyzeSpeech, analyzeDebateSession } from './services/geminiService';
 import { saveHistoryItem } from './services/historyService';
 import { User, getCurrentUser, handleAuthCallback, loginWithGoogle, logout } from './services/authService';
+import { SubscriptionInfo, subscriptionService } from './services/subscriptionService';
+import { PricingPage } from './components/PricingPage';
+import { UpgradePrompt } from './components/UpgradePrompt';
+import { SubscriptionBadge } from './components/SubscriptionBadge';
 
 const SPEECH_TIPS = [
   "Pause for 2-3 seconds before answering to show thoughtfulness.",
@@ -47,12 +51,17 @@ const SPEECH_TIPS = [
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo | null>(null);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
   useEffect(() => {
     handleAuthCallback();
     getCurrentUser().then(user => {
       setCurrentUser(user);
       setAuthLoading(false);
+      if (user) {
+        subscriptionService.getStatus().then(info => setSubscriptionInfo(info));
+      }
     });
   }, []);
 
@@ -225,7 +234,15 @@ export default function App() {
          <div className={`absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] transition-colors duration-1000 ${sessionConfig.mode === SessionMode.SPEECH ? 'bg-teal-900/20' : 'bg-purple-900/20'}`}></div>
       </div>
       <div className="relative z-10">
-        {step === AppStep.HOME && <Home prefs={userPrefs} onStartSession={handleStartSessionFromHome} onViewHistory={() => {}} onOpenSettings={() => setStep(AppStep.SETUP)} onViewSession={handleViewSession} currentUser={currentUser} authLoading={authLoading} onLogin={loginWithGoogle} onLogout={logout} />}
+        {step === AppStep.HOME && <Home prefs={userPrefs} onStartSession={handleStartSessionFromHome} onViewHistory={() => {}} onOpenSettings={() => setStep(AppStep.SETUP)} onViewSession={handleViewSession} currentUser={currentUser} authLoading={authLoading} onLogin={loginWithGoogle} onLogout={logout} subscriptionInfo={subscriptionInfo} onOpenPricing={() => setStep(AppStep.PRICING)} />}
+        {step === AppStep.PRICING && <PricingPage onBack={handleGoHome} subscriptionInfo={subscriptionInfo} />}
+        {showUpgradePrompt && subscriptionInfo?.upgradeReason && (
+          <UpgradePrompt
+            reason={subscriptionInfo.upgradeReason}
+            onUpgrade={() => { setShowUpgradePrompt(false); setStep(AppStep.PRICING); }}
+            onDismiss={() => setShowUpgradePrompt(false)}
+          />
+        )}
         {step === AppStep.SETUP && <SessionSetup prefs={userPrefs} initialMode={sessionConfig.mode} onStart={handleSessionStart} onBack={handleGoHome} onLoadHistory={handleViewSession} onHome={handleGoHome} />}
         {step === AppStep.STAGE && (
           <>
