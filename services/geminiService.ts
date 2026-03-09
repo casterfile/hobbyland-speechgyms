@@ -205,20 +205,58 @@ export const analyzeSpeech = async (
 ): Promise<AnalysisResult> => {
   const config = EDUCATION_CONSTRAINTS[eduLevel];
   const base64Audio = await blobToBase64(audioBlob);
-  const promptText = `Act as a Speech Evaluator for a ${config.target}. Topic: "${topic}". Language: ${language}.
-  
-  CRITICAL INSTRUCTION FOR SILENCE/EMPTY SPEECH:
-  If the transcript is empty or "[No speech detected]", you MUST STILL generate:
-  1. A perfect 'modelAnswer' for the topic.
-  2. A complete 'structure' object showing the IDEAL structure (Point, Reason, Example) for this topic.
-  3. A 'speechFramework' populated with 2-3 ideal scripts.
-  4. Set score to 0.
-  
-  Outputs:
-  1. modelAnswer: High-standard reference speech.
-  2. vocabUpgrades: 6-20 specific phrase upgrades (or suggested phrases if silent).
-  
-  Output JSON only.`;
+  const promptText = `You are a world-class Speech Coach and Rhetoric Professor evaluating a ${config.target}.
+Topic: "${topic}". Language: ${language}. Duration: ~${Math.round(duration)}s. Mode: ${mode}. Level: ${level}.
+
+CRITICAL INSTRUCTION FOR SILENCE/EMPTY SPEECH:
+If the transcript is empty or "[No speech detected]", you MUST STILL generate ALL fields below with ideal examples. Set overallScore to 0.
+
+EVALUATION CRITERIA (be rigorous and specific):
+
+1. **transcript**: Exact word-for-word transcription of the audio. Include filler words (um, uh, like, you know).
+
+2. **overallScore** (0-100): Be strict. 70+ = genuinely good speech. 50-69 = average. Below 50 = needs work.
+
+3. **subScores** (each 0-100):
+   - logic: How well-structured is the reasoning? Are there clear cause-effect chains?
+   - delivery: Pace, pausing, vocal variety, confidence, projection
+   - structure: Did they use PREP or similar framework? Clear intro/body/conclusion?
+   - vocabulary: Word choice sophistication, variety, precision for their level
+   - emotion: Emotional engagement, passion, ability to connect with audience
+
+4. **modelAnswer**: Write a COMPLETE, polished 200-300 word model speech for this exact topic. This should be a gold-standard example the speaker can study. Use rhetorical devices (anaphora, tricolon, metaphor). Include a strong hook, 2-3 body points with evidence, and a memorable conclusion.
+
+5. **structure**: Analyze their PREP framework usage:
+   - isPrep: Did they follow Point-Reason-Example-Point?
+   - feedback: 2-3 sentences on structural strengths/weaknesses
+   - point: What was their main claim? (or suggest one if missing)
+   - reason: What reasoning did they provide? (or suggest)
+   - example: What example/evidence did they use? (or suggest a compelling one)
+   - pointRestated: How did they conclude? (or suggest a strong conclusion)
+
+6. **vocabUpgrades**: Provide 8-15 specific upgrades. For each:
+   - original: The exact weak/basic phrase they used
+   - suggested: A more powerful, precise alternative
+   - type: "vocabulary" or "transition"
+   - tip: Brief explanation of why the upgrade is better
+
+7. **speechFramework**: Provide 2-3 complete alternative scripts (each 150-250 words):
+   - name: Framework name (e.g. "The Storyteller", "The Philosopher", "The Analyst")
+   - description: 1 sentence on the approach
+   - polishedScript: Full written-out speech using this framework
+
+8. **grammarAnalysis**: List every grammar mistake found (3-10 items):
+   - original: The incorrect phrase
+   - correction: The corrected version
+   - reason: Brief grammar rule explanation
+
+9. **strengths**: 3-5 specific things they did well (be concrete, not generic)
+10. **weaknesses**: 3-5 specific areas for improvement (actionable, not vague)
+11. **sentiment**: Overall emotional tone (e.g. "Confident and persuasive", "Hesitant but thoughtful")
+12. **fillerWordCount**: Exact count of filler words (um, uh, like, you know, so, basically)
+
+BE THOROUGH. Every field must be substantive and detailed. Do not give generic feedback like "good job" — cite specific moments from their speech.
+Output JSON only.`;
 
   const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
     model: 'gemini-3-pro-preview',
@@ -317,23 +355,33 @@ export const analyzeDebateSession = async (
     const constructiveBase64 = await blobToBase64(constructiveBlob);
     const rebuttalBase64 = await blobToBase64(rebuttalBlob);
 
-    const promptText = `Act as a Master Debate Judge for a ${config.target}.
+    const promptText = `You are a Master Debate Judge and Rhetoric Expert evaluating a ${config.target}.
     Topic: "${topic}". User Side: ${userSide}. Language: ${language}.
-    
+
     Input:
     1. User Constructive Speech (Audio 1)
-    2. AI Opponent Counter-Argument (Text provided: "${aiCounterText.substring(0, 300)}...")
+    2. AI Opponent Counter-Argument: "${aiCounterText.substring(0, 500)}"
     3. User Rebuttal Speech (Audio 2)
-    
-    Task: Evaluate the User's entire performance. 
-    
-    REQUIRED OUTPUTS:
-    1. debateAnalysis: An object containing:
-       - constructive: { transcript: <exact text of audio 1>, modelAnswer: <an ideal constructive speech for this topic/side> }
-       - rebuttal: { transcript: <exact text of audio 2>, modelAnswer: <an ideal rebuttal to the AI's points> }
-    2. overallScore, subScores, strengths, weaknesses, etc. as per standard schema.
-    
-    Output JSON compatible with AnalysisResult schema.`;
+
+    EVALUATION (be rigorous and detailed):
+
+    1. **debateAnalysis**:
+       - constructive: { transcript: <exact word-for-word text of audio 1>, modelAnswer: <a 200-word ideal constructive speech with strong claims, evidence, and impact> }
+       - rebuttal: { transcript: <exact word-for-word text of audio 2>, modelAnswer: <a 200-word ideal rebuttal that dismantles opponent's points and reinforces own case> }
+
+    2. **overallScore** (0-100): Be strict. Consider argument quality, refutation skill, evidence usage, and logical consistency across both rounds.
+
+    3. **subScores** (0-100 each): logic (argument chains), delivery (confidence/pace), structure (organization), vocabulary (precision), emotion (persuasion power)
+
+    4. **modelAnswer**: Combined ideal performance summary (200-300 words)
+    5. **vocabUpgrades**: 8-15 specific phrase improvements from their speeches
+    6. **speechFramework**: 2 alternative debate strategies as complete scripts
+    7. **grammarAnalysis**: All grammar errors found
+    8. **strengths**: 3-5 specific strong moments (cite actual quotes)
+    9. **weaknesses**: 3-5 specific areas to improve (actionable advice)
+    10. **sentiment**: e.g. "Assertive in constructive, defensive in rebuttal"
+
+    BE THOROUGH. Cite specific quotes from the user's speeches. Output JSON only.`;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
         model: 'gemini-3-pro-preview',
