@@ -1,20 +1,13 @@
 
-import { HistoryItem } from '../types';
-import localforage from 'localforage';
+import { HistoryItem, AnalysisResult } from '../types';
 
-const DB_NAME = 'InstantSpeechDB';
-const STORE_NAME = 'history';
-
-// Initialize localforage
-localforage.config({
-  name: DB_NAME,
-  storeName: STORE_NAME
-});
+const API_BASE = '/api';
 
 export const getHistory = async (): Promise<HistoryItem[]> => {
   try {
-    const stored = await localforage.getItem<HistoryItem[]>('sessions');
-    return stored || [];
+    const res = await fetch(`${API_BASE}/sessions`);
+    if (!res.ok) throw new Error('Failed to fetch');
+    return await res.json();
   } catch (e) {
     console.error("Failed to load history", e);
     return [];
@@ -23,10 +16,33 @@ export const getHistory = async (): Promise<HistoryItem[]> => {
 
 export const saveHistoryItem = async (item: HistoryItem) => {
   try {
-    const history = await getHistory();
-    // Limit to 50 items (increased limit due to better storage capacity of IndexedDB)
-    const updated = [item, ...history].slice(0, 50); 
-    await localforage.setItem('sessions', updated);
+    const payload = {
+      topic: item.topic,
+      mode: item.mode,
+      level: item.fullResult?.subScores ? 'ADVANCED' : 'BEGINNER',
+      educationLevel: 'UNIVERSITY',
+      language: 'English',
+      durationSeconds: 0,
+      overallScore: item.fullResult.overallScore,
+      subScores: item.fullResult.subScores,
+      transcript: item.fullResult.transcript,
+      modelAnswer: item.fullResult.modelAnswer,
+      wpm: item.fullResult.wpm,
+      fillerWordCount: item.fullResult.fillerWordCount,
+      sentiment: item.fullResult.sentiment,
+      structure: item.fullResult.structure,
+      speechFramework: item.fullResult.speechFramework,
+      vocabUpgrades: item.fullResult.vocabUpgrades,
+      grammarAnalysis: item.fullResult.grammarAnalysis,
+      strengths: item.fullResult.strengths,
+      weaknesses: item.fullResult.weaknesses,
+      debateAnalysis: item.fullResult.debateAnalysis
+    };
+    await fetch(`${API_BASE}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   } catch (e) {
     console.error("Failed to save history", e);
   }
