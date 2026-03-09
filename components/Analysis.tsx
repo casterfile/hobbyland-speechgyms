@@ -3,8 +3,9 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { AnalysisResult, SessionMode, DrillType } from '../types';
 import { VirtualCoach } from './VirtualCoach';
 import { translateText } from '../services/geminiService';
-import { 
-  AlertCircle, CheckCircle, Zap, MessageSquare, Mic, 
+import { SubscriptionInfo } from '../services/subscriptionService';
+import {
+  AlertCircle, CheckCircle, Zap, MessageSquare, Mic, Lock,
   ThumbsUp, ThumbsDown, Heart, Brain, Play, Pause, BookOpen, Volume2, ChevronDown, ChevronUp, Bot, FileText, Laugh, Languages, PenTool, Scale, Menu, Target, ArrowRight, Sparkles, GraduationCap, Repeat, ArrowRightCircle, Globe, Swords
 } from 'lucide-react';
 import {
@@ -20,8 +21,20 @@ interface Props {
   topic?: string;
   language?: string;
   onHome: () => void;
-  onStartDrill?: (type: DrillType) => void; 
+  onStartDrill?: (type: DrillType) => void;
+  subscriptionInfo?: SubscriptionInfo | null;
+  onUpgrade?: () => void;
 }
+
+const FadeUpgrade: React.FC<{ onUpgrade?: () => void; label?: string }> = ({ onUpgrade, label = "Upgrade to See Full Analysis" }) => (
+  <div className="relative mt-[-80px] pt-20 pb-6 flex flex-col items-center" style={{ background: 'linear-gradient(to bottom, transparent, rgb(30 41 59) 40%)' }}>
+    <Lock size={20} className="text-slate-500 mb-2" />
+    <p className="text-slate-400 text-sm mb-3">{label}</p>
+    <button onClick={onUpgrade} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2">
+      <Zap size={14} /> Upgrade to Pro
+    </button>
+  </div>
+);
 
 const CustomAudioPlayer: React.FC<{ src: string, recordedDuration: number }> = ({ src, recordedDuration }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -125,7 +138,8 @@ const TranscriptHighlighter: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, recordedDuration = 0, topic = "Your Speech", language = "English", onHome, onStartDrill }) => {
+export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, recordedDuration = 0, topic = "Your Speech", language = "English", onHome, onStartDrill, subscriptionInfo, onUpgrade }) => {
+  const isPaid = subscriptionInfo?.tier === 'paid' || subscriptionInfo?.tier === 'trial';
   const isSpeech = mode === SessionMode.SPEECH;
   const [activeFrameworkIndex, setActiveFrameworkIndex] = useState(0);
   const [viewMode, setViewMode] = useState<'REPORT' | 'COACH'>('REPORT');
@@ -239,46 +253,67 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
       <div className="max-w-[95%] mx-auto p-4 md:p-6 space-y-6 pt-6">
         <div className={viewMode === 'COACH' ? 'block animate-fade-in' : 'hidden'}>
            <div className="max-w-4xl mx-auto">
-             <div className="mb-6 text-center">
-               <h2 className="text-2xl font-bold text-white mb-2">Speak with your AI Coach</h2>
-               <p className="text-slate-400">Have a natural conversation. Ask for advice or practice a section of your speech.</p>
-             </div>
-             <VirtualCoach result={result} topic={topic} mode={mode} language={language || 'English'} />
+             {isPaid ? (
+               <>
+                 <div className="mb-6 text-center">
+                   <h2 className="text-2xl font-bold text-white mb-2">Speak with your AI Coach</h2>
+                   <p className="text-slate-400">Have a natural conversation. Ask for advice or practice a section of your speech.</p>
+                 </div>
+                 <VirtualCoach result={result} topic={topic} mode={mode} language={language || 'English'} />
+               </>
+             ) : (
+               <div className="flex flex-col items-center justify-center py-20 text-center">
+                 <div className="p-4 bg-slate-800 rounded-full mb-4 border border-slate-700"><Lock size={32} className="text-slate-500" /></div>
+                 <h2 className="text-2xl font-bold text-white mb-2">Virtual Coach is a Pro Feature</h2>
+                 <p className="text-slate-400 mb-6 max-w-md">Get personalized coaching conversations about your speech with our AI coach.</p>
+                 <button onClick={onUpgrade} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-all"><Zap size={16} /> Upgrade to Pro</button>
+               </div>
+             )}
           </div>
         </div>
 
         <div className={viewMode === 'REPORT' ? 'block animate-fade-in space-y-6' : 'hidden'}>
              {onStartDrill && (
-                <div className="bg-gradient-to-r from-blue-900/50 to-indigo-900/50 border border-blue-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg animate-fade-in">
+                <div className="bg-gradient-to-r from-blue-900/50 to-indigo-900/50 border border-blue-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg animate-fade-in relative overflow-hidden">
                     <div>
                         <div className="flex items-center gap-2 text-blue-300 font-bold uppercase text-xs tracking-wider mb-2"><Target size={14} /> Recommended Practice</div>
                         <h3 className="text-xl font-bold text-white mb-1">{recommendedDrill.title}</h3>
                         <p className="text-slate-300 text-sm">{recommendedDrill.desc}</p>
                     </div>
-                    <button onClick={() => onStartDrill(recommendedDrill.type)} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-transform hover:scale-105 whitespace-nowrap">Start 3-Round Drill <ArrowRight size={18} /></button>
+                    {isPaid ? (
+                      <button onClick={() => onStartDrill(recommendedDrill.type)} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-transform hover:scale-105 whitespace-nowrap">Start 3-Round Drill <ArrowRight size={18} /></button>
+                    ) : (
+                      <button onClick={onUpgrade} className="px-6 py-3 bg-slate-700 text-slate-300 font-bold rounded-xl flex items-center gap-2 whitespace-nowrap"><Lock size={16} /> Pro Only</button>
+                    )}
                 </div>
              )}
 
              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                  <h1 className="text-2xl font-bold text-white flex items-center gap-2 mb-2 md:mb-0">{getModeIcon()} Analysis Report</h1>
-                 <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
-                     <select value={targetLang} onChange={(e) => { setTargetLang(e.target.value); setShowTranslation(false); setTranslatedModelAnswer(null); }} className="bg-slate-900 text-xs md:text-sm text-white px-2 py-1.5 rounded-lg border-none outline-none">
-                         <option value="Chinese (Traditional)">Traditional Chinese</option>
-                         <option value="Chinese (Simplified)">Simplified Chinese</option>
-                         <option value="Spanish">Spanish</option>
-                         <option value="French">French</option>
-                         <option value="Japanese">Japanese</option>
-                         <option value="English">English</option>
-                     </select>
-                     <button 
-                        onClick={handleTranslate} 
-                        disabled={isTranslating}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition-all ${showTranslation ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:text-white'}`}
-                     >
-                         <Globe size={14} className={isTranslating ? 'animate-spin' : ''} />
-                         {isTranslating ? 'Translating...' : showTranslation ? 'Original' : 'Translate'}
-                     </button>
-                 </div>
+                 {isPaid ? (
+                   <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
+                       <select value={targetLang} onChange={(e) => { setTargetLang(e.target.value); setShowTranslation(false); setTranslatedModelAnswer(null); }} className="bg-slate-900 text-xs md:text-sm text-white px-2 py-1.5 rounded-lg border-none outline-none">
+                           <option value="Chinese (Traditional)">Traditional Chinese</option>
+                           <option value="Chinese (Simplified)">Simplified Chinese</option>
+                           <option value="Spanish">Spanish</option>
+                           <option value="French">French</option>
+                           <option value="Japanese">Japanese</option>
+                           <option value="English">English</option>
+                       </select>
+                       <button
+                          onClick={handleTranslate}
+                          disabled={isTranslating}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition-all ${showTranslation ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:text-white'}`}
+                       >
+                           <Globe size={14} className={isTranslating ? 'animate-spin' : ''} />
+                           {isTranslating ? 'Translating...' : showTranslation ? 'Original' : 'Translate'}
+                       </button>
+                   </div>
+                 ) : (
+                   <button onClick={onUpgrade} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-xl border border-slate-700 text-xs text-slate-500">
+                     <Lock size={12} /> <Globe size={14} /> Translate (Pro)
+                   </button>
+                 )}
              </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -319,16 +354,17 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
               </div>
             </div>
 
-            <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+            <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden relative">
                <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center gap-2 justify-between">
                  <div className="flex items-center gap-2">
                     <BookOpen size={20} className="text-teal-400" />
                     <h3 className="font-bold text-white">Recommended Frameworks</h3>
+                    {!isPaid && <span className="text-[10px] font-bold bg-slate-700 text-slate-400 px-2 py-0.5 rounded">1 of {displayFrameworks.length}</span>}
                  </div>
                  {showTranslation && <span className="text-[10px] font-black uppercase bg-blue-600 px-2 py-0.5 rounded text-white tracking-widest">Translated</span>}
                </div>
                <div>
-                 {displayFrameworks.map((framework, idx) => (
+                 {(isPaid ? displayFrameworks : displayFrameworks.slice(0, 1)).map((framework, idx) => (
                    <div key={idx} className="border-b border-slate-700 last:border-0">
                      <button onClick={() => setActiveFrameworkIndex(idx)} className={`w-full flex items-center justify-between p-4 text-left transition-colors ${activeFrameworkIndex === idx ? 'bg-slate-700/30' : 'hover:bg-slate-700/10'}`}>
                         <div className="flex items-center gap-3">
@@ -349,11 +385,12 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
                    </div>
                  ))}
                </div>
+               {!isPaid && <FadeUpgrade onUpgrade={onUpgrade} label="Upgrade to see all frameworks" />}
             </div>
 
-            {/* NEW: Vocabulary & Transition Upgrades */}
+            {/* Vocabulary & Transition Upgrades */}
             {result.vocabUpgrades && result.vocabUpgrades.length > 0 && (
-              <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl animate-fade-in">
+              <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl animate-fade-in relative">
                 <div className="p-4 bg-violet-900/20 border-b border-slate-700 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles size={20} className="text-violet-400" />
@@ -362,7 +399,7 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
                   <span className="text-[10px] font-black bg-violet-600 text-white px-2 py-0.5 rounded uppercase tracking-widest">{result.vocabUpgrades.length} Upgrades</span>
                 </div>
                 <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {result.vocabUpgrades.map((upgrade, idx) => (
+                  {(isPaid ? result.vocabUpgrades : result.vocabUpgrades.slice(0, Math.ceil(result.vocabUpgrades.length / 2))).map((upgrade, idx) => (
                     <div key={idx} className="bg-slate-900/40 rounded-xl p-4 border border-slate-700 group hover:border-violet-500/50 transition-all flex flex-col gap-3">
                       <div className="flex items-center justify-between">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-tighter ${upgrade.type === 'transition' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'}`}>
@@ -386,11 +423,12 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
                     </div>
                   ))}
                 </div>
+                {!isPaid && <FadeUpgrade onUpgrade={onUpgrade} label="Upgrade to see all vocab upgrades" />}
               </div>
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+              <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 relative overflow-hidden">
                 <div className="flex items-center gap-2 mb-6"><Zap size={20} className="text-purple-400" /><h3 className="font-bold text-white">Structure Analysis</h3></div>
                 <div className={`mb-6 p-4 rounded-xl border ${result.structure.isPrep ? 'bg-green-900/20 border-green-800' : 'bg-orange-900/20 border-orange-800'}`}>
                    <div className="flex items-start gap-3">
@@ -400,24 +438,30 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
                 </div>
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">{structureTitle}</h4>
                 <div className="space-y-3">
-                  {[
+                  {(isPaid ? [
                     { label: structureLabels.point, text: result.structure.point, color: 'border-blue-500/50' },
                     { label: structureLabels.reason, text: result.structure.reason, color: 'border-cyan-500/50' },
                     { label: structureLabels.example, text: result.structure.example, color: 'border-teal-500/50' },
                     { label: structureLabels.restate, text: result.structure.pointRestated, color: 'border-blue-500/50' },
-                  ].map((item, i) => (
+                  ] : [
+                    { label: structureLabels.point, text: result.structure.point, color: 'border-blue-500/50' },
+                    { label: structureLabels.reason, text: result.structure.reason, color: 'border-cyan-500/50' },
+                  ]).map((item, i) => (
                     <div key={i} className={`p-3 rounded-lg bg-slate-900/50 border-l-4 ${item.color}`}><div className="text-[10px] uppercase font-bold text-slate-500 mb-1">{item.label}</div><p className="text-sm text-slate-200">{item.text || "Not detected"}</p></div>
                   ))}
                 </div>
+                {!isPaid && <FadeUpgrade onUpgrade={onUpgrade} label="Upgrade to see full structure" />}
               </div>
               <div className="space-y-6">
-                <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+                <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 relative overflow-hidden">
                    <div className="flex items-center gap-2 mb-4 text-green-400"><ThumbsUp size={20} /><h3 className="font-bold">Strengths</h3></div>
-                   <ul className="space-y-2">{result.strengths.map((str, i) => (<li key={i} className="flex gap-2 text-sm text-slate-300 items-start"><div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 shrink-0"></div><span>{str}</span></li>))}</ul>
+                   <ul className="space-y-2">{(isPaid ? result.strengths : result.strengths.slice(0, Math.ceil(result.strengths.length / 2))).map((str, i) => (<li key={i} className="flex gap-2 text-sm text-slate-300 items-start"><div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 shrink-0"></div><span>{str}</span></li>))}</ul>
+                   {!isPaid && result.strengths.length > 2 && <FadeUpgrade onUpgrade={onUpgrade} label="Upgrade to see all strengths" />}
                 </div>
-                <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+                <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 relative overflow-hidden">
                    <div className="flex items-center gap-2 mb-4 text-red-400"><ThumbsDown size={20} /><h3 className="font-bold">Areas for Improvement</h3></div>
-                   <ul className="space-y-2">{result.weaknesses.map((weak, i) => (<li key={i} className="flex gap-2 text-sm text-slate-300 items-start"><div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0"></div><span>{weak}</span></li>))}</ul>
+                   <ul className="space-y-2">{(isPaid ? result.weaknesses : result.weaknesses.slice(0, Math.ceil(result.weaknesses.length / 2))).map((weak, i) => (<li key={i} className="flex gap-2 text-sm text-slate-300 items-start"><div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0"></div><span>{weak}</span></li>))}</ul>
+                   {!isPaid && result.weaknesses.length > 2 && <FadeUpgrade onUpgrade={onUpgrade} label="Upgrade to see all improvements" />}
                 </div>
               </div>
             </div>
@@ -439,10 +483,11 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
                   <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500/50"></div>
                   <div className="text-slate-200 leading-relaxed text-base md:text-lg font-serif italic relative">
                     <span className="absolute -top-6 -left-2 text-6xl text-indigo-500/20 font-serif opacity-50">"</span>
-                    <HighlightedText text={displayModelAnswer} />
+                    <HighlightedText text={isPaid ? displayModelAnswer : displayModelAnswer.slice(0, Math.floor(displayModelAnswer.length * 0.4)) + '...'} />
                     <span className="absolute -bottom-8 -right-2 text-6xl text-indigo-500/20 font-serif opacity-50">"</span>
                   </div>
                 </div>
+                {!isPaid && <FadeUpgrade onUpgrade={onUpgrade} label="Upgrade to see the full model answer" />}
               </div>
             )}
 
@@ -460,9 +505,12 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
                                 <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Your Transcript</h4>
                                 <div className="p-4 bg-slate-900/50 rounded-xl text-slate-300 text-sm italic">{result.debateAnalysis.constructive.transcript}</div>
                             </div>
-                            <div>
+                            <div className="relative overflow-hidden">
                                 <h4 className="text-xs font-bold text-indigo-400 uppercase mb-2">Expert Constructive Model</h4>
-                                <div className="p-4 bg-indigo-900/20 rounded-xl text-indigo-200 text-sm font-serif">{result.debateAnalysis.constructive.modelAnswer}</div>
+                                <div className="p-4 bg-indigo-900/20 rounded-xl text-indigo-200 text-sm font-serif">
+                                  {isPaid ? result.debateAnalysis.constructive.modelAnswer : result.debateAnalysis.constructive.modelAnswer.slice(0, Math.floor(result.debateAnalysis.constructive.modelAnswer.length * 0.4)) + '...'}
+                                </div>
+                                {!isPaid && <FadeUpgrade onUpgrade={onUpgrade} label="Upgrade to see full model" />}
                             </div>
                         </div>
                     </div>
@@ -478,9 +526,12 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
                                 <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Your Transcript</h4>
                                 <div className="p-4 bg-slate-900/50 rounded-xl text-slate-300 text-sm italic">{result.debateAnalysis.rebuttal.transcript}</div>
                             </div>
-                            <div>
+                            <div className="relative overflow-hidden">
                                 <h4 className="text-xs font-bold text-indigo-400 uppercase mb-2">Expert Rebuttal Model</h4>
-                                <div className="p-4 bg-indigo-900/20 rounded-xl text-indigo-200 text-sm font-serif">{result.debateAnalysis.rebuttal.modelAnswer}</div>
+                                <div className="p-4 bg-indigo-900/20 rounded-xl text-indigo-200 text-sm font-serif">
+                                  {isPaid ? result.debateAnalysis.rebuttal.modelAnswer : result.debateAnalysis.rebuttal.modelAnswer.slice(0, Math.floor(result.debateAnalysis.rebuttal.modelAnswer.length * 0.4)) + '...'}
+                                </div>
+                                {!isPaid && <FadeUpgrade onUpgrade={onUpgrade} label="Upgrade to see full model" />}
                             </div>
                         </div>
                     </div>

@@ -278,16 +278,18 @@ export default function App() {
             </>
         )}
         {step === AppStep.ANALYSIS && analysisResult && (
-          <Analysis 
-            result={analysisResult} 
-            onRestart={() => setStep(AppStep.SETUP)} 
-            mode={sessionConfig.mode} 
-            audioBlob={currentAudioBlob} 
-            recordedDuration={recordedDuration} 
-            topic={sessionConfig.topic} 
-            language={sessionConfig.language} 
-            onHome={handleGoHome} 
-            onStartDrill={handleStartDrill} 
+          <Analysis
+            result={analysisResult}
+            onRestart={() => setStep(AppStep.SETUP)}
+            mode={sessionConfig.mode}
+            audioBlob={currentAudioBlob}
+            recordedDuration={recordedDuration}
+            topic={sessionConfig.topic}
+            language={sessionConfig.language}
+            onHome={handleGoHome}
+            onStartDrill={handleStartDrill}
+            subscriptionInfo={subscriptionInfo}
+            onUpgrade={() => setStep(AppStep.PRICING)}
           />
         )}
         {step === AppStep.DRILL && (
