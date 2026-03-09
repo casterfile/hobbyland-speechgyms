@@ -72,8 +72,8 @@ export const VirtualCoach: React.FC<Props> = ({ result, topic, mode, language, e
     const startConversation = async () => {
       setIsLoading(true);
       try {
-        const response: GenerateContentResponse = await chatSessionRef.current.sendMessage({ 
-          message: `Greet the user for their ${eduLevel} level speech on "${topic}". Briefly mention a specific positive from their transcript.` 
+        const response: GenerateContentResponse = await chatSessionRef.current.sendMessage({
+          message: `Greet the user for their ${eduLevel} level speech on "${topic}". Briefly mention a specific positive from their transcript.`
         });
         setMessages([{ role: 'model', text: response.text || "Hello! Ready to review?" }]);
       } catch (e) {
@@ -83,12 +83,35 @@ export const VirtualCoach: React.FC<Props> = ({ result, topic, mode, language, e
       }
     };
     startConversation();
-    return () => { if (synthRef.current) synthRef.current.cancel(); };
+    return () => {
+      if (synthRef.current) synthRef.current.cancel();
+    };
   }, [result, topic, mode, language, eduLevel]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
+
+  // Save chat to database when conversation has messages
+  const chatIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (messages.length < 2) return;
+    const saveChat = async () => {
+      try {
+        const res = await fetch('/api/chats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, messages })
+        });
+        const data = await res.json();
+        if (data.id) chatIdRef.current = data.id;
+      } catch (e) {
+        console.error('Failed to save chat:', e);
+      }
+    };
+    const timer = setTimeout(saveChat, 2000);
+    return () => clearTimeout(timer);
+  }, [messages, topic]);
 
   const handleSend = async (manualText?: string) => {
     const textToSend = manualText || input;

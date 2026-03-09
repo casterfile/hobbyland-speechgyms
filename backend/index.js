@@ -110,6 +110,22 @@ app.post('/api/drills', async (req, res) => {
   }
 });
 
+// POST chat log
+app.post('/api/chats', async (req, res) => {
+  try {
+    const { sessionId, topic, messages } = req.body;
+    const result = await pool.query(
+      `INSERT INTO chat_logs (session_id, topic, messages)
+       VALUES ($1, $2, $3) RETURNING id`,
+      [sessionId || null, topic, JSON.stringify(messages)]
+    );
+    res.json({ id: result.rows[0].id });
+  } catch (err) {
+    console.error('POST /api/chats error:', err);
+    res.status(500).json({ error: 'Failed to save chat' });
+  }
+});
+
 // SPA fallback - serve index.html for all non-API routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

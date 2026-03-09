@@ -100,6 +100,16 @@ export const DrillSession: React.FC<Props> = ({ type, language, contextTopic, ed
           const res = await analyzeDrillBatch(recs, type, language, educationLevel);
           setResult(res);
           setStep('RESULT');
+          // Save drill to database
+          try {
+            await fetch('/api/drills', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(res)
+            });
+          } catch (saveErr) {
+            console.error('Failed to save drill:', saveErr);
+          }
       } catch (e) {
           onHome();
       }
