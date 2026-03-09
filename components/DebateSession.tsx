@@ -36,7 +36,7 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { echoCancellation: true },
-                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+                video: false
             });
 
             if (!isMounted) {

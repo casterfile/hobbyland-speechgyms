@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SessionConfig } from '../types';
 import { VirtualAudience } from './VirtualAudience';
-import { Mic, Square, Video, VideoOff, Loader2, Plus, SkipForward, X, AlertTriangle } from 'lucide-react';
+import { Mic, Square, Loader2, Plus, SkipForward, X, AlertTriangle } from 'lucide-react';
 
 interface Props {
   config: SessionConfig;
@@ -18,11 +18,8 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
   const [countDown, setCountDown] = useState(5);
   const [timeLeft, setTimeLeft] = useState(config.durationSeconds);
   const [isReady, setIsReady] = useState(false);
-  const [cameraOn, setCameraOn] = useState(true);
   const [volume, setVolume] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
-  const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -94,17 +91,13 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
     let isMounted = true;
     const setupStream = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true
-          }, 
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'user'
-          } 
+          },
+          video: false
         });
         
         if (!isMounted) {
@@ -132,15 +125,11 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
         };
         updateVolume();
 
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-
         setIsReady(true);
       } catch (err: any) {
         console.error("Stream setup failed:", err);
         if (isMounted) {
-          setErrorMsg(err.message || "Camera and Microphone access are required to start the session.");
+          setErrorMsg(err.message || "Microphone access is required to start the session.");
           setStageState('ERROR');
         }
       }
@@ -154,16 +143,6 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
   }, []);
-
-  const toggleCamera = () => {
-    if (streamRef.current) {
-      const videoTrack = streamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !cameraOn;
-        setCameraOn(!cameraOn);
-      }
-    }
-  };
 
   const startRecording = () => {
     if (!streamRef.current || !isReady) return;
@@ -277,16 +256,13 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
       {/* Main Viewport */}
       <div className="flex-1 overflow-hidden p-2 md:p-4 bg-slate-900 relative">
          <VirtualAudience userVideo={
-             <div className="relative w-full h-full bg-slate-800 flex items-center justify-center overflow-hidden">
-                <video ref={videoRef} autoPlay muted playsInline className={`min-w-full min-h-full object-cover transform scale-x-[-1] transition-opacity duration-300 ${!cameraOn ? 'opacity-0' : 'opacity-100'}`} />
-                {!cameraOn && <div className="absolute inset-0 flex items-center justify-center text-slate-500 bg-slate-900"><VideoOff size={32} /></div>}
-                
+             <div className="relative w-full h-full bg-slate-900 flex items-center justify-center overflow-hidden">
                 {stageState === 'COUNTDOWN' && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px] animate-fade-in">
                         <div className="text-9xl font-black text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.8)] scale-150 animate-pulse">{countDown}</div>
                     </div>
                 )}
-                
+
                 {(stageState === 'STARTING' || !isReady) && (
                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
                       <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
@@ -294,8 +270,22 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
                    </div>
                 )}
 
-                <div className="absolute bottom-2 right-2 flex items-center justify-center">
-                    <div className="p-2 rounded-full bg-blue-600/80 text-white backdrop-blur transition-all duration-75" style={{ transform: `scale(${1 + (volume / 200)})`, opacity: 0.5 + (volume / 200) }}><Mic size={16} /></div>
+                {/* Audio visualizer */}
+                <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="p-4 rounded-full transition-all duration-75" style={{
+                      background: `rgba(59,130,246,${0.15 + volume / 300})`,
+                      boxShadow: `0 0 ${volume / 2}px rgba(59,130,246,${volume / 200})`,
+                      transform: `scale(${1 + (volume / 150)})`
+                    }}>
+                      <Mic size={28} className="text-blue-400" />
+                    </div>
+                    {stageState === 'RECORDING' && (
+                      <div className="flex items-center gap-1 h-6">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="w-1 bg-blue-500 rounded-full transition-all duration-75" style={{ height: `${Math.max(4, Math.min(24, volume * (0.5 + Math.random() * 0.8)))}px` }} />
+                        ))}
+                      </div>
+                    )}
                 </div>
              </div>
          } />
@@ -304,10 +294,6 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
       {/* Control Bar */}
       <div className="w-full bg-slate-900/90 backdrop-blur-md p-6 border-t border-slate-700 z-30">
         <div className="max-w-3xl mx-auto flex items-center justify-center gap-4 md:gap-10">
-           <button onClick={toggleCamera} disabled={stageState === 'FINISHED'} className="p-4 rounded-full bg-slate-800 text-white hover:bg-slate-700 transition-colors border border-slate-600 disabled:opacity-50">
-             {cameraOn ? <Video size={24} /> : <VideoOff size={24} />}
-           </button>
-           
            {stageState !== 'RECORDING' ? (
              <button disabled className="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 border-4 shadow-xl bg-slate-700 border-slate-600 opacity-50 cursor-not-allowed">
                {stageState === 'COUNTDOWN' ? <span className="text-2xl font-bold text-white">{countDown}</span> : <Loader2 size={32} className="text-slate-400 animate-spin" />}
