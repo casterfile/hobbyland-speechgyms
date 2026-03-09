@@ -1,11 +1,14 @@
 
-import { HistoryItem, AnalysisResult } from '../types';
+import { HistoryItem } from '../types';
+import { getAuthHeaders } from './authService';
 
 const API_BASE = '/api';
 
 export const getHistory = async (): Promise<HistoryItem[]> => {
   try {
-    const res = await fetch(`${API_BASE}/sessions`);
+    const res = await fetch(`${API_BASE}/sessions`, {
+      headers: { ...getAuthHeaders() }
+    });
     if (!res.ok) throw new Error('Failed to fetch');
     return await res.json();
   } catch (e) {
@@ -40,7 +43,7 @@ export const saveHistoryItem = async (item: HistoryItem) => {
     };
     await fetch(`${API_BASE}/sessions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(payload)
     });
   } catch (e) {

@@ -9,6 +9,7 @@ import { DrillSession } from './components/DrillSession';
 import { DebateSession } from './components/DebateSession';
 import { analyzeSpeech, analyzeDebateSession } from './services/geminiService';
 import { saveHistoryItem } from './services/historyService';
+import { User, getCurrentUser, handleAuthCallback, loginWithGoogle, logout } from './services/authService';
 
 const SPEECH_TIPS = [
   "Pause for 2-3 seconds before answering to show thoughtfulness.",
@@ -44,6 +45,17 @@ const SPEECH_TIPS = [
 ];
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    handleAuthCallback();
+    getCurrentUser().then(user => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+    });
+  }, []);
+
   const [step, setStep] = useState<AppStep>(AppStep.HOME);
   const [userPrefs, setUserPrefs] = useState<UserPreferences>({ topics: [], preferredMode: SessionMode.SPEECH });
   const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ 
@@ -213,6 +225,22 @@ export default function App() {
          <div className={`absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] transition-colors duration-1000 ${sessionConfig.mode === SessionMode.SPEECH ? 'bg-teal-900/20' : 'bg-purple-900/20'}`}></div>
       </div>
       <div className="relative z-10">
+        {/* Auth UI - top right */}
+        <div className="fixed top-4 right-4 z-50">
+          {authLoading ? null : currentUser ? (
+            <div className="flex items-center gap-3">
+              <img src={currentUser.avatar} alt="" className="w-9 h-9 rounded-full border-2 border-slate-600" referrerPolicy="no-referrer" />
+              <span className="text-sm text-slate-300 hidden md:block">{currentUser.name}</span>
+              <button onClick={logout} className="text-xs text-slate-500 hover:text-white transition-colors">Logout</button>
+            </div>
+          ) : (
+            <button onClick={loginWithGoogle} className="flex items-center gap-2 px-4 py-2 bg-white text-slate-800 rounded-xl text-sm font-semibold hover:bg-slate-100 transition-colors shadow-lg">
+              <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Sign in with Google
+            </button>
+          )}
+        </div>
+
         {step === AppStep.HOME && <Home prefs={userPrefs} onStartSession={handleStartSessionFromHome} onViewHistory={() => {}} onOpenSettings={() => setStep(AppStep.SETUP)} onViewSession={handleViewSession} />}
         {step === AppStep.SETUP && <SessionSetup prefs={userPrefs} initialMode={sessionConfig.mode} onStart={handleSessionStart} onBack={handleGoHome} onLoadHistory={handleViewSession} onHome={handleGoHome} />}
         {step === AppStep.STAGE && (

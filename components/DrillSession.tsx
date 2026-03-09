@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DrillType, DrillBatchResult, EducationLevel } from '../types';
 import { generateDrillChallenges, analyzeDrillBatch } from '../services/geminiService';
+import { getAuthHeaders } from '../services/authService';
 import { Mic, Square, Loader2, ArrowRight, CheckCircle, Target, TrendingUp, RefreshCw, Home, Brain, Sparkles, ChevronRight, MessageSquare, ArrowRightCircle, Timer } from 'lucide-react';
 
 interface Props {
@@ -104,7 +105,7 @@ export const DrillSession: React.FC<Props> = ({ type, language, contextTopic, ed
           try {
             await fetch('/api/drills', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
               body: JSON.stringify(res)
             });
           } catch (saveErr) {
