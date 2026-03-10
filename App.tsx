@@ -14,6 +14,7 @@ import { SubscriptionInfo, subscriptionService } from './services/subscriptionSe
 import { PricingPage } from './components/PricingPage';
 import { UpgradePrompt } from './components/UpgradePrompt';
 import { SubscriptionBadge } from './components/SubscriptionBadge';
+import { TrialCodeModal } from './components/TrialCodeModal';
 
 const SPEECH_TIPS = [
   "Pause for 2-3 seconds before answering to show thoughtfulness.",
@@ -53,6 +54,8 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo | null>(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [showTrialCodeModal, setShowTrialCodeModal] = useState(false);
+  const [prefillCode, setPrefillCode] = useState('');
 
   useEffect(() => {
     handleAuthCallback();
@@ -63,6 +66,15 @@ export default function App() {
         subscriptionService.getStatus().then(info => setSubscriptionInfo(info));
       }
     });
+
+    // Check for ?code= URL param
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) {
+      setPrefillCode(code.toUpperCase());
+      setShowTrialCodeModal(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, []);
 
   const [step, setStep] = useState<AppStep>(AppStep.HOME);
@@ -234,7 +246,7 @@ export default function App() {
          <div className={`absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] transition-colors duration-1000 ${sessionConfig.mode === SessionMode.SPEECH ? 'bg-teal-900/20' : 'bg-purple-900/20'}`}></div>
       </div>
       <div className="relative z-10">
-        {step === AppStep.HOME && <Home prefs={userPrefs} onStartSession={handleStartSessionFromHome} onViewHistory={() => {}} onOpenSettings={() => setStep(AppStep.SETUP)} onViewSession={handleViewSession} currentUser={currentUser} authLoading={authLoading} onLogin={loginWithGoogle} onLogout={logout} subscriptionInfo={subscriptionInfo} onOpenPricing={() => setStep(AppStep.PRICING)} />}
+        {step === AppStep.HOME && <Home prefs={userPrefs} onStartSession={handleStartSessionFromHome} onViewHistory={() => {}} onOpenSettings={() => setStep(AppStep.SETUP)} onViewSession={handleViewSession} currentUser={currentUser} authLoading={authLoading} onLogin={loginWithGoogle} onLogout={logout} subscriptionInfo={subscriptionInfo} onOpenPricing={() => setStep(AppStep.PRICING)} onRedeemCode={() => setShowTrialCodeModal(true)} />}
         {step === AppStep.PRICING && <PricingPage onBack={handleGoHome} subscriptionInfo={subscriptionInfo} />}
         {showUpgradePrompt && subscriptionInfo?.upgradeReason && (
           <UpgradePrompt
@@ -293,12 +305,24 @@ export default function App() {
           />
         )}
         {step === AppStep.DRILL && (
-          <DrillSession 
-            type={activeDrillType} 
-            language={sessionConfig.language} 
-            contextTopic={sessionConfig.topic} 
+          <DrillSession
+            type={activeDrillType}
+            language={sessionConfig.language}
+            contextTopic={sessionConfig.topic}
             educationLevel={sessionConfig.educationLevel}
-            onHome={handleGoHome} 
+            onHome={handleGoHome}
+          />
+        )}
+        {showTrialCodeModal && (
+          <TrialCodeModal
+            prefillCode={prefillCode}
+            isLoggedIn={!!currentUser}
+            onLogin={loginWithGoogle}
+            onClose={() => setShowTrialCodeModal(false)}
+            onSuccess={() => {
+              setShowTrialCodeModal(false);
+              subscriptionService.getStatus().then(info => setSubscriptionInfo(info));
+            }}
           />
         )}
       </div>

@@ -7,7 +7,7 @@ import { SubscriptionInfo } from '../services/subscriptionService';
 import { SubscriptionBadge } from './SubscriptionBadge';
 import {
   Play, Mic2, Laugh, Scale, HeartHandshake, History,
-  Settings, Trophy, TrendingUp, Calendar, ChevronRight, Sparkles, LogOut
+  Settings, Trophy, TrendingUp, Calendar, ChevronRight, Sparkles, LogOut, Gift
 } from 'lucide-react';
 
 interface Props {
@@ -22,6 +22,7 @@ interface Props {
   onLogout: () => void;
   subscriptionInfo: SubscriptionInfo | null;
   onOpenPricing: () => void;
+  onRedeemCode?: () => void;
 }
 
 const SPEECH_TIPS_SHORT = [
@@ -34,7 +35,7 @@ const SPEECH_TIPS_SHORT = [
   "Turn nervous energy into enthusiasm."
 ];
 
-export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, onOpenSettings, onViewSession, currentUser, authLoading, onLogin, onLogout, subscriptionInfo, onOpenPricing }) => {
+export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, onOpenSettings, onViewSession, currentUser, authLoading, onLogin, onLogout, subscriptionInfo, onOpenPricing, onRedeemCode }) => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [dailyTip, setDailyTip] = useState("");
   const [stats, setStats] = useState({ totalSessions: 0, avgScore: 0 });
@@ -91,6 +92,11 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
         <div className="flex items-center gap-3">
           {!authLoading && (currentUser ? (
             <>
+              {subscriptionInfo?.tier === 'free' && onRedeemCode && (
+                <button onClick={onRedeemCode} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/30 hover:bg-emerald-500/30 transition-all">
+                  <Gift size={10} /> Code
+                </button>
+              )}
               <SubscriptionBadge subscriptionInfo={subscriptionInfo} onClick={onOpenPricing} />
               <div className="flex items-center gap-3 bg-slate-800 rounded-full pl-1 pr-4 py-1 border border-slate-700">
                 <img src={currentUser.avatar} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
