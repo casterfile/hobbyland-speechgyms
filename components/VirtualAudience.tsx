@@ -3,11 +3,11 @@ import { MicOff, Video } from 'lucide-react';
 
 // More realistic avatars from Unsplash
 const AVATARS = [
-  { src: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=facearea&facepad=2.5", name: "Sarah J." },
-  { src: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=facearea&facepad=2.5", name: "Michael C." },
-  { src: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=facearea&facepad=2.5", name: "David L." },
-  { src: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=facearea&facepad=2.5", name: "Emily R." },
-  { src: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=facearea&facepad=2.5", name: "James T." },
+  { src: "https://randomuser.me/api/portraits/women/44.jpg", name: "Sarah J." },
+  { src: "https://randomuser.me/api/portraits/men/32.jpg", name: "Michael C." },
+  { src: "https://randomuser.me/api/portraits/men/75.jpg", name: "David L." },
+  { src: "https://randomuser.me/api/portraits/women/68.jpg", name: "Emily R." },
+  { src: "https://randomuser.me/api/portraits/men/86.jpg", name: "James T." },
 ];
 
 const EMOJIS = ["😐", "🙂", "🤔", "🤨", "🖊️", "👀", "👏", "😊"];
