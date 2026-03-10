@@ -232,7 +232,7 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
   return (
     <div className="w-full min-h-screen bg-slate-900 overflow-y-auto pb-20">
       <div className="w-full bg-slate-800 border-b border-slate-700 p-4 pt-12 md:pt-6 sticky top-0 z-50 backdrop-blur-md bg-opacity-90 shadow-md">
-        <div className="max-w-[95%] mx-auto flex justify-between items-center gap-4 relative">
+        <div className="max-w-6xl w-[95%] mx-auto flex justify-between items-center gap-4 relative">
           <div className="relative">
              <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors"><Menu size={24} /></button>
              {isMenuOpen && (
@@ -250,7 +250,7 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
         </div>
       </div>
 
-      <div className="max-w-[95%] mx-auto p-4 md:p-6 space-y-6 pt-6">
+      <div className="max-w-6xl w-[95%] mx-auto p-4 md:p-6 space-y-6 pt-6">
         <div className={viewMode === 'COACH' ? 'block animate-fade-in' : 'hidden'}>
            <div className="max-w-4xl mx-auto">
              {isPaid ? (
