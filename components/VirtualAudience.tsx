@@ -3,11 +3,11 @@ import { MicOff, Video } from 'lucide-react';
 
 // More realistic avatars from Unsplash
 const AVATARS = [
-  { src: "https://randomuser.me/api/portraits/women/44.jpg", name: "Sarah J." },
-  { src: "https://randomuser.me/api/portraits/men/32.jpg", name: "Michael C." },
-  { src: "https://randomuser.me/api/portraits/men/75.jpg", name: "David L." },
-  { src: "https://randomuser.me/api/portraits/women/68.jpg", name: "Emily R." },
-  { src: "https://randomuser.me/api/portraits/men/86.jpg", name: "James T." },
+  { src: "/audience/sarah.jpg", name: "Sarah J." },
+  { src: "/audience/michael.jpg", name: "Michael C." },
+  { src: "/audience/david.jpg", name: "David L." },
+  { src: "/audience/emily.jpg", name: "Emily R." },
+  { src: "/audience/james.jpg", name: "James T." },
 ];
 
 const EMOJIS = ["😐", "🙂", "🤔", "🤨", "🖊️", "👀", "👏", "😊"];
