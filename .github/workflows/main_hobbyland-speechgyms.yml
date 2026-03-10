@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,24 +30,15 @@ jobs:
         with:
           context: .
           push: true
-          tags: n8nhobbylandacr.azurecr.io/speechgyms-app:${{ github.sha }}
+          tags: |
+            n8nhobbylandacr.azurecr.io/speechgyms-app:${{ github.sha }}
+            n8nhobbylandacr.azurecr.io/speechgyms-app:latest
           build-args: |
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           file: ./Dockerfile
           no-cache: true
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'hobbyland-speechgyms'
-          images: 'n8nhobbylandacr.azurecr.io/speechgyms-app:${{ github.sha }}'
+        run: |
+          curl -s -X POST "${{ secrets.AZURE_WEBHOOK_URL }}" -H "Content-Length: 0"
+          echo "Webhook triggered — Azure will pull the latest image"
