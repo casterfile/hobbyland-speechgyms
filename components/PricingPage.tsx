@@ -5,9 +5,11 @@ import { ArrowLeft, Check, Sparkles, Crown, Gift, CheckCircle } from 'lucide-rea
 interface Props {
   onBack: () => void;
   subscriptionInfo: SubscriptionInfo | null;
+  onPrivacy?: () => void;
+  onTerms?: () => void;
 }
 
-export const PricingPage: React.FC<Props> = ({ onBack, subscriptionInfo }) => {
+export const PricingPage: React.FC<Props> = ({ onBack, subscriptionInfo, onPrivacy, onTerms }) => {
   const [loading, setLoading] = useState<'monthly' | 'yearly' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [trialCode, setTrialCode] = useState('');
@@ -186,10 +188,15 @@ export const PricingPage: React.FC<Props> = ({ onBack, subscriptionInfo }) => {
           </div>
         </div>
 
-        <div className="text-center mt-12">
+        <div className="text-center mt-12 space-y-3">
           <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
             Your 7-day trial is free. You won't be charged until the trial ends. Cancel anytime from your account settings.
           </p>
+          <div className="flex items-center justify-center gap-4 text-[10px] text-slate-600">
+            {onPrivacy && <button onClick={onPrivacy} className="hover:text-slate-400 transition-colors">Privacy Policy</button>}
+            <span>·</span>
+            {onTerms && <button onClick={onTerms} className="hover:text-slate-400 transition-colors">Terms & Conditions</button>}
+          </div>
         </div>
       </main>
     </div>

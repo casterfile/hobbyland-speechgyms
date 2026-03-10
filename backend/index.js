@@ -336,8 +336,8 @@ app.post('/api/subscription/checkout', requireAuth, async (req, res) => {
 
     res.json({ url: session.url });
   } catch (err) {
-    console.error('POST /api/subscription/checkout error:', err);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    console.error('POST /api/subscription/checkout error:', err?.message || err);
+    res.status(500).json({ error: err?.message || 'Failed to create checkout session' });
   }
 });
 

@@ -15,6 +15,7 @@ import { PricingPage } from './components/PricingPage';
 import { UpgradePrompt } from './components/UpgradePrompt';
 import { SubscriptionBadge } from './components/SubscriptionBadge';
 import { TrialCodeModal } from './components/TrialCodeModal';
+import { PrivacyPolicy, TermsAndConditions } from './components/LegalPages';
 
 const SPEECH_TIPS = [
   "Pause for 2-3 seconds before answering to show thoughtfulness.",
@@ -246,8 +247,10 @@ export default function App() {
          <div className={`absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] transition-colors duration-1000 ${sessionConfig.mode === SessionMode.SPEECH ? 'bg-teal-900/20' : 'bg-purple-900/20'}`}></div>
       </div>
       <div className="relative z-10">
-        {step === AppStep.HOME && <Home prefs={userPrefs} onStartSession={handleStartSessionFromHome} onViewHistory={() => {}} onOpenSettings={() => setStep(AppStep.SETUP)} onViewSession={handleViewSession} currentUser={currentUser} authLoading={authLoading} onLogin={loginWithGoogle} onLogout={logout} subscriptionInfo={subscriptionInfo} onOpenPricing={() => setStep(AppStep.PRICING)} onRedeemCode={() => setShowTrialCodeModal(true)} />}
-        {step === AppStep.PRICING && <PricingPage onBack={handleGoHome} subscriptionInfo={subscriptionInfo} />}
+        {step === AppStep.HOME && <Home prefs={userPrefs} onStartSession={handleStartSessionFromHome} onViewHistory={() => {}} onOpenSettings={() => setStep(AppStep.SETUP)} onViewSession={handleViewSession} currentUser={currentUser} authLoading={authLoading} onLogin={loginWithGoogle} onLogout={logout} subscriptionInfo={subscriptionInfo} onOpenPricing={() => setStep(AppStep.PRICING)} onRedeemCode={() => setShowTrialCodeModal(true)} onPrivacy={() => setStep(AppStep.PRIVACY)} onTerms={() => setStep(AppStep.TERMS)} />}
+        {step === AppStep.PRICING && <PricingPage onBack={handleGoHome} subscriptionInfo={subscriptionInfo} onPrivacy={() => setStep(AppStep.PRIVACY)} onTerms={() => setStep(AppStep.TERMS)} />}
+        {step === AppStep.PRIVACY && <PrivacyPolicy onBack={handleGoHome} />}
+        {step === AppStep.TERMS && <TermsAndConditions onBack={handleGoHome} />}
         {showUpgradePrompt && subscriptionInfo?.upgradeReason && (
           <UpgradePrompt
             reason={subscriptionInfo.upgradeReason}

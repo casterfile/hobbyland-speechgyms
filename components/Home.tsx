@@ -23,6 +23,8 @@ interface Props {
   subscriptionInfo: SubscriptionInfo | null;
   onOpenPricing: () => void;
   onRedeemCode?: () => void;
+  onPrivacy?: () => void;
+  onTerms?: () => void;
 }
 
 const SPEECH_TIPS_SHORT = [
@@ -35,7 +37,7 @@ const SPEECH_TIPS_SHORT = [
   "Turn nervous energy into enthusiasm."
 ];
 
-export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, onOpenSettings, onViewSession, currentUser, authLoading, onLogin, onLogout, subscriptionInfo, onOpenPricing, onRedeemCode }) => {
+export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, onOpenSettings, onViewSession, currentUser, authLoading, onLogin, onLogout, subscriptionInfo, onOpenPricing, onRedeemCode, onPrivacy, onTerms }) => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [dailyTip, setDailyTip] = useState("");
   const [stats, setStats] = useState({ totalSessions: 0, avgScore: 0 });
@@ -250,6 +252,15 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
                   </div>
               </div>
           </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-center gap-4 text-[10px] text-slate-600 pb-4">
+        {onPrivacy && <button onClick={onPrivacy} className="hover:text-slate-400 transition-colors">Privacy Policy</button>}
+        <span>·</span>
+        {onTerms && <button onClick={onTerms} className="hover:text-slate-400 transition-colors">Terms & Conditions</button>}
+        <span>·</span>
+        <span>© 2026 DeFiner Tech Ltd</span>
       </div>
 
     </div>
