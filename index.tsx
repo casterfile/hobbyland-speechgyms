@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-console.log('%cSpeechGyms v1.0.1', 'color: #6366f1; font-weight: bold; font-size: 14px;');
+console.log('%cSpeechGyms v1.0.3', 'color: #6366f1; font-weight: bold; font-size: 14px;');
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
