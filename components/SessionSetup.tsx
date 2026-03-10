@@ -350,23 +350,23 @@ export const SessionSetup: React.FC<Props> = ({ prefs, initialMode, onStart, onB
                            <p className="text-xl font-medium">Brewing logic for {educationLevel} level...</p>
                        </div>
                    ) : outline ? (
-                       <div className="relative h-[450px] w-full flex items-center justify-center">
+                       <div className="relative h-[500px] w-full flex items-center justify-center">
                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" xmlns="http://www.w3.org/2000/svg">
-                                <line x1="50%" y1="50%" x2="50%" y2="15%" stroke="#475569" strokeWidth="2" strokeDasharray="4 4" />
-                                <line x1="50%" y1="50%" x2="15%" y2="80%" stroke="#475569" strokeWidth="2" strokeDasharray="4 4" />
-                                <line x1="50%" y1="50%" x2="85%" y2="80%" stroke="#475569" strokeWidth="2" strokeDasharray="4 4" />
+                                <line x1="50%" y1="45%" x2="50%" y2="8%" stroke="#475569" strokeWidth="2" strokeDasharray="4 4" />
+                                <line x1="50%" y1="45%" x2="12%" y2="85%" stroke="#475569" strokeWidth="2" strokeDasharray="4 4" />
+                                <line x1="50%" y1="45%" x2="88%" y2="85%" stroke="#475569" strokeWidth="2" strokeDasharray="4 4" />
                            </svg>
-                           <div className="absolute z-20 w-44 h-44 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-6 text-center shadow-[0_0_50px_rgba(59,130,246,0.5)] border-4 border-slate-800 animate-float">
-                               <p className="text-white font-black text-sm md:text-lg leading-tight uppercase tracking-tight">{outline.centralIdea}</p>
+                           <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-40 h-40 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-5 text-center shadow-[0_0_50px_rgba(59,130,246,0.5)] border-4 border-slate-800">
+                               <p className="text-white font-black text-xs md:text-sm leading-tight uppercase tracking-tight">{outline.centralIdea}</p>
                            </div>
-                           <div className="absolute top-[5%] left-1/2 -translate-x-1/2 w-36 h-36 rounded-full bg-slate-900/90 backdrop-blur-sm border-2 border-slate-600 flex items-center justify-center p-5 text-center shadow-2xl transition-transform hover:scale-110">
-                               <p className="text-slate-200 text-xs md:text-sm font-bold leading-tight">{outline.points[0]}</p>
+                           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-28 rounded-full bg-slate-900/90 backdrop-blur-sm border-2 border-slate-600 flex items-center justify-center p-3 text-center shadow-2xl transition-transform hover:scale-110 z-10">
+                               <p className="text-slate-200 text-[10px] md:text-xs font-bold leading-tight">{outline.points[0]}</p>
                            </div>
-                           <div className="absolute bottom-[5%] left-[5%] w-36 h-36 rounded-full bg-slate-900/90 backdrop-blur-sm border-2 border-slate-600 flex items-center justify-center p-5 text-center shadow-2xl transition-transform hover:scale-110">
-                               <p className="text-slate-200 text-xs md:text-sm font-bold leading-tight">{outline.points[1]}</p>
+                           <div className="absolute bottom-0 left-[2%] w-28 h-28 rounded-full bg-slate-900/90 backdrop-blur-sm border-2 border-slate-600 flex items-center justify-center p-3 text-center shadow-2xl transition-transform hover:scale-110 z-10">
+                               <p className="text-slate-200 text-[10px] md:text-xs font-bold leading-tight">{outline.points[1]}</p>
                            </div>
-                           <div className="absolute bottom-[5%] right-[5%] w-36 h-36 rounded-full bg-slate-900/90 backdrop-blur-sm border-2 border-slate-600 flex items-center justify-center p-5 text-center shadow-2xl transition-transform hover:scale-110">
-                               <p className="text-slate-200 text-xs md:text-sm font-bold leading-tight">{outline.points[2]}</p>
+                           <div className="absolute bottom-0 right-[2%] w-28 h-28 rounded-full bg-slate-900/90 backdrop-blur-sm border-2 border-slate-600 flex items-center justify-center p-3 text-center shadow-2xl transition-transform hover:scale-110 z-10">
+                               <p className="text-slate-200 text-[10px] md:text-xs font-bold leading-tight">{outline.points[2]}</p>
                            </div>
                        </div>
                    ) : (
