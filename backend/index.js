@@ -364,11 +364,84 @@ app.post('/api/subscription/portal', requireAuth, async (req, res) => {
   }
 });
 
+// ==================== TRIAL CODE ROUTES ====================
+
+// POST /api/trial-code/redeem
+app.post('/api/trial-code/redeem', requireAuth, async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'Code is required' });
+
+    const codeResult = await pool.query('SELECT * FROM trial_codes WHERE UPPER(code) = UPPER($1)', [code.trim()]);
+    const trialCode = codeResult.rows[0];
+    if (!trialCode) return res.status(404).json({ error: 'Invalid code' });
+
+    // Check if expired
+    if (trialCode.expires_at && new Date() > new Date(trialCode.expires_at)) {
+      return res.status(400).json({ error: 'This code has expired' });
+    }
+
+    // Check max uses
+    if (trialCode.max_uses !== null && trialCode.times_used >= trialCode.max_uses) {
+      return res.status(400).json({ error: 'This code has reached its usage limit' });
+    }
+
+    // Check if user already redeemed this code
+    const existingRedemption = await pool.query(
+      'SELECT * FROM trial_code_redemptions WHERE code_id = $1 AND user_id = $2',
+      [trialCode.id, req.user.id]
+    );
+    if (existingRedemption.rows.length > 0) {
+      return res.status(400).json({ error: 'You have already used this code' });
+    }
+
+    // Check if user already has an active subscription
+    const subResult = await pool.query('SELECT * FROM subscriptions WHERE user_id = $1', [req.user.id]);
+    const sub = subResult.rows[0];
+    if (sub && ['ACTIVE', 'PAID_TRIAL'].includes(sub.status)) {
+      const now = new Date();
+      if (sub.status === 'PAID_TRIAL' && sub.paid_trial_ends_at && now < new Date(sub.paid_trial_ends_at)) {
+        return res.status(400).json({ error: 'You already have an active trial' });
+      }
+      if (sub.status === 'ACTIVE') {
+        return res.status(400).json({ error: 'You already have an active subscription' });
+      }
+    }
+
+    // Redeem the code
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialCode.trial_days);
+
+    await pool.query(
+      `UPDATE subscriptions SET status = 'PAID_TRIAL', paid_trial_started_at = NOW(), paid_trial_ends_at = $2, updated_at = NOW()
+       WHERE user_id = $1`,
+      [req.user.id, trialEndsAt]
+    );
+
+    await pool.query(
+      'INSERT INTO trial_code_redemptions (code_id, user_id) VALUES ($1, $2)',
+      [trialCode.id, req.user.id]
+    );
+
+    await pool.query('UPDATE trial_codes SET times_used = times_used + 1 WHERE id = $1', [trialCode.id]);
+
+    res.json({
+      success: true,
+      trialDays: trialCode.trial_days,
+      trialEndsAt: trialEndsAt.toISOString(),
+      message: `${trialCode.trial_days}-day Pro trial activated!`
+    });
+  } catch (err) {
+    console.error('POST /api/trial-code/redeem error:', err);
+    res.status(500).json({ error: 'Failed to redeem code' });
+  }
+});
+
 // ==================== API ROUTES ====================
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.0.2' });
+  res.json({ status: 'ok', version: '1.0.3' });
 });
 
 // GET sessions (history) - filtered by user if logged in

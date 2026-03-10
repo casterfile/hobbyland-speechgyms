@@ -40,4 +40,15 @@ export const subscriptionService = {
     if (!res.ok) throw new Error('Failed to create portal session');
     return await res.json();
   },
+
+  redeemTrialCode: async (code: string): Promise<{ success: boolean; trialDays: number; trialEndsAt: string; message: string }> => {
+    const res = await fetch('/api/trial-code/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to redeem code');
+    return data;
+  },
 };

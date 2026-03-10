@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SubscriptionInfo, subscriptionService } from '../services/subscriptionService';
-import { ArrowLeft, Check, Sparkles, Crown } from 'lucide-react';
+import { ArrowLeft, Check, Sparkles, Crown, Gift, CheckCircle } from 'lucide-react';
 
 interface Props {
   onBack: () => void;
@@ -10,6 +10,9 @@ interface Props {
 export const PricingPage: React.FC<Props> = ({ onBack, subscriptionInfo }) => {
   const [loading, setLoading] = useState<'monthly' | 'yearly' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [trialCode, setTrialCode] = useState('');
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeSuccess, setCodeSuccess] = useState<string | null>(null);
 
   const handleCheckout = async (planInterval: 'monthly' | 'yearly') => {
     setLoading(planInterval);
@@ -131,6 +134,55 @@ export const PricingPage: React.FC<Props> = ({ onBack, subscriptionInfo }) => {
                 </span>
               ) : 'Start 7-Day Free Trial'}
             </button>
+          </div>
+        </div>
+
+        {/* Trial Code Section */}
+        <div className="max-w-md mx-auto mt-16">
+          <div className="bg-slate-900 rounded-2xl p-6 border border-slate-700">
+            <div className="flex items-center gap-2 mb-4">
+              <Gift size={18} className="text-emerald-400" />
+              <h3 className="font-bold text-white text-sm">Have a trial code?</h3>
+            </div>
+
+            {codeSuccess ? (
+              <div className="flex items-center gap-3 p-4 bg-emerald-900/20 border border-emerald-800 rounded-xl">
+                <CheckCircle size={20} className="text-emerald-400 shrink-0" />
+                <p className="text-sm text-emerald-300 font-medium">{codeSuccess}</p>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={trialCode}
+                  onChange={(e) => { setTrialCode(e.target.value.toUpperCase()); setError(null); }}
+                  placeholder="Enter code"
+                  className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm font-mono uppercase tracking-wider placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
+                />
+                <button
+                  onClick={async () => {
+                    if (!trialCode.trim()) return;
+                    setCodeLoading(true);
+                    setError(null);
+                    try {
+                      const result = await subscriptionService.redeemTrialCode(trialCode.trim());
+                      setCodeSuccess(result.message);
+                      setTimeout(() => onBack(), 2000);
+                    } catch (err: any) {
+                      setError(err.message);
+                    } finally {
+                      setCodeLoading(false);
+                    }
+                  }}
+                  disabled={codeLoading || !trialCode.trim()}
+                  className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all disabled:opacity-50 whitespace-nowrap"
+                >
+                  {codeLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : 'Redeem'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
