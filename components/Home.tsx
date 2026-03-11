@@ -7,7 +7,7 @@ import { SubscriptionInfo } from '../services/subscriptionService';
 import { SubscriptionBadge } from './SubscriptionBadge';
 import {
   Play, Mic2, Laugh, Scale, HeartHandshake, History,
-  Settings, Trophy, TrendingUp, Calendar, ChevronRight, Sparkles, LogOut, Gift
+  Settings, Trophy, TrendingUp, Calendar, ChevronRight, Sparkles, LogOut, Gift, CreditCard
 } from 'lucide-react';
 
 interface Props {
@@ -23,6 +23,7 @@ interface Props {
   subscriptionInfo: SubscriptionInfo | null;
   onOpenPricing: () => void;
   onRedeemCode?: () => void;
+  onManageSubscription?: () => void;
   onPrivacy?: () => void;
   onTerms?: () => void;
 }
@@ -37,7 +38,7 @@ const SPEECH_TIPS_SHORT = [
   "Turn nervous energy into enthusiasm."
 ];
 
-export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, onOpenSettings, onViewSession, currentUser, authLoading, onLogin, onLogout, subscriptionInfo, onOpenPricing, onRedeemCode, onPrivacy, onTerms }) => {
+export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, onOpenSettings, onViewSession, currentUser, authLoading, onLogin, onLogout, subscriptionInfo, onOpenPricing, onRedeemCode, onManageSubscription, onPrivacy, onTerms }) => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [dailyTip, setDailyTip] = useState("");
   const [stats, setStats] = useState({ totalSessions: 0, avgScore: 0 });
@@ -97,6 +98,11 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
               {subscriptionInfo?.tier === 'free' && onRedeemCode && (
                 <button onClick={onRedeemCode} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/30 hover:bg-emerald-500/30 transition-all">
                   <Gift size={10} /> Code
+                </button>
+              )}
+              {(subscriptionInfo?.tier === 'paid' || subscriptionInfo?.tier === 'trial') && onManageSubscription && (
+                <button onClick={onManageSubscription} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700/50 text-slate-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-slate-600/50 hover:bg-slate-700 hover:text-slate-300 transition-all">
+                  <CreditCard size={10} /> Manage
                 </button>
               )}
               <SubscriptionBadge subscriptionInfo={subscriptionInfo} onClick={onOpenPricing} />

@@ -60,6 +60,26 @@ export const PricingPage: React.FC<Props> = ({ onBack, subscriptionInfo, onPriva
           </p>
         </div>
 
+        {(subscriptionInfo?.tier === 'paid' || subscriptionInfo?.tier === 'trial') && (
+          <div className="max-w-md mx-auto mb-12 bg-slate-900 rounded-2xl p-6 border border-slate-700 text-center">
+            <p className="text-sm text-slate-400 mb-1">You're on <span className="text-white font-bold">{subscriptionInfo.tier === 'trial' ? 'Free Trial' : 'Pro'}</span></p>
+            <p className="text-xs text-slate-500 mb-4">Manage your billing, update payment method, or cancel anytime.</p>
+            <button
+              onClick={async () => {
+                try {
+                  const { url } = await subscriptionService.createPortalSession();
+                  window.location.href = url;
+                } catch (err: any) {
+                  setError(err.message || 'Failed to open billing portal');
+                }
+              }}
+              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all border border-slate-600"
+            >
+              Manage Subscription
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="max-w-md mx-auto mb-8 p-4 bg-red-900/20 border border-red-800 rounded-2xl text-center">
             <p className="text-sm text-red-400 font-medium">{error}</p>
