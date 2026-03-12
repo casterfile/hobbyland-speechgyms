@@ -441,7 +441,7 @@ app.post('/api/trial-code/redeem', requireAuth, async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.0.3' });
+  res.json({ status: 'ok', version: '1.0.4' });
 });
 
 // GET sessions (history) - filtered by user if logged in
