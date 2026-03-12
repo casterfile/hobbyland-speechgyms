@@ -42,6 +42,7 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [dailyTip, setDailyTip] = useState("");
   const [stats, setStats] = useState({ totalSessions: 0, avgScore: 0 });
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
     // Async load of history
@@ -95,23 +96,39 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
         <div className="flex items-center gap-3">
           {!authLoading && (currentUser ? (
             <>
-              {subscriptionInfo?.tier === 'free' && onRedeemCode && (
-                <button onClick={onRedeemCode} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/30 hover:bg-emerald-500/30 transition-all">
-                  <Gift size={10} /> Code
-                </button>
-              )}
-              {(subscriptionInfo?.tier === 'paid' || subscriptionInfo?.tier === 'trial') && onManageSubscription && (
-                <button onClick={onManageSubscription} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700/50 text-slate-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-slate-600/50 hover:bg-slate-700 hover:text-slate-300 transition-all">
-                  <CreditCard size={10} /> Manage
-                </button>
-              )}
               <SubscriptionBadge subscriptionInfo={subscriptionInfo} onClick={onOpenPricing} />
-              <div className="flex items-center gap-3 bg-slate-800 rounded-full pl-1 pr-4 py-1 border border-slate-700">
-                <img src={currentUser.avatar} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
-                <span className="text-sm text-slate-300 hidden md:block">{currentUser.name}</span>
-                <button onClick={onLogout} title="Logout" className="p-1 hover:text-white text-slate-500 transition-colors">
-                  <LogOut size={14} />
+              <div className="relative">
+                <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 bg-slate-800 rounded-full pl-1 pr-4 py-1 border border-slate-700 hover:border-slate-600 transition-colors">
+                  <img src={currentUser.avatar} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
+                  <span className="text-sm text-slate-300 hidden md:block">{currentUser.name}</span>
+                  <ChevronRight size={14} className={`text-slate-500 transition-transform ${showProfileMenu ? 'rotate-90' : ''}`} />
                 </button>
+                {showProfileMenu && (
+                  <div className="absolute top-12 right-0 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden animate-fade-in flex flex-col z-50">
+                    <div className="px-4 py-3 border-b border-slate-700">
+                      <p className="text-sm font-medium text-white truncate">{currentUser.name}</p>
+                      <p className="text-xs text-slate-400 truncate">{currentUser.email}</p>
+                    </div>
+                    {(subscriptionInfo?.tier === 'paid' || subscriptionInfo?.tier === 'trial') && onManageSubscription && (
+                      <button onClick={() => { setShowProfileMenu(false); onManageSubscription(); }} className="px-4 py-3 text-left text-sm hover:bg-slate-700 text-slate-200 flex items-center gap-3">
+                        <CreditCard size={15} className="text-blue-400" /> Manage Subscription
+                      </button>
+                    )}
+                    {subscriptionInfo?.tier === 'free' && (
+                      <button onClick={() => { setShowProfileMenu(false); onOpenPricing(); }} className="px-4 py-3 text-left text-sm hover:bg-slate-700 text-slate-200 flex items-center gap-3">
+                        <Sparkles size={15} className="text-yellow-400" /> Upgrade to Pro
+                      </button>
+                    )}
+                    {subscriptionInfo?.tier === 'free' && onRedeemCode && (
+                      <button onClick={() => { setShowProfileMenu(false); onRedeemCode(); }} className="px-4 py-3 text-left text-sm hover:bg-slate-700 text-slate-200 flex items-center gap-3">
+                        <Gift size={15} className="text-emerald-400" /> Redeem Code
+                      </button>
+                    )}
+                    <button onClick={() => { setShowProfileMenu(false); onLogout(); }} className="px-4 py-3 text-left text-sm hover:bg-slate-700 text-red-400 flex items-center gap-3 border-t border-slate-700">
+                      <LogOut size={15} /> Logout
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -187,26 +204,6 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
               </div>
           </div>
       </div>
-
-      {/* Manage Subscription */}
-      {(subscriptionInfo?.tier === 'paid' || subscriptionInfo?.tier === 'trial') && onManageSubscription && (
-        <div className="bg-slate-800 rounded-2xl p-5 border border-slate-700 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400">
-              <CreditCard size={22} />
-            </div>
-            <div>
-              <h3 className="font-bold text-white text-sm">Subscription</h3>
-              <p className="text-xs text-slate-400">
-                {subscriptionInfo?.tier === 'trial' ? 'Free Trial active' : 'Pro member'} — manage billing, update payment, or cancel anytime.
-              </p>
-            </div>
-          </div>
-          <button onClick={onManageSubscription} className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all border border-slate-600 whitespace-nowrap">
-            Manage
-          </button>
-        </div>
-      )}
 
       {/* Recent History & Tips */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
