@@ -188,6 +188,26 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
           </div>
       </div>
 
+      {/* Manage Subscription */}
+      {(subscriptionInfo?.tier === 'paid' || subscriptionInfo?.tier === 'trial') && onManageSubscription && (
+        <div className="bg-slate-800 rounded-2xl p-5 border border-slate-700 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400">
+              <CreditCard size={22} />
+            </div>
+            <div>
+              <h3 className="font-bold text-white text-sm">Subscription</h3>
+              <p className="text-xs text-slate-400">
+                {subscriptionInfo?.tier === 'trial' ? 'Free Trial active' : 'Pro member'} — manage billing, update payment, or cancel anytime.
+              </p>
+            </div>
+          </div>
+          <button onClick={onManageSubscription} className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all border border-slate-600 whitespace-nowrap">
+            Manage
+          </button>
+        </div>
+      )}
+
       {/* Recent History & Tips */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* History List */}
