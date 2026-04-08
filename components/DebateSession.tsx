@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SessionConfig } from '../types';
 import { generateDebateCounter } from '../services/geminiService';
-import { Mic, Square, Loader2, Swords, Bot, VideoOff, Video, User } from 'lucide-react';
+import { Mic, Square, Loader2, Swords, Bot } from 'lucide-react';
 
 interface Props {
   config: SessionConfig;
@@ -16,8 +16,6 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
   const [step, setStep] = useState<DebateStep>('INTRO');
   const [timeLeft, setTimeLeft] = useState(config.prepTimeSeconds > 0 ? config.prepTimeSeconds : 5);
   const [recordingTime, setRecordingTime] = useState(config.durationSeconds);
-  const [cameraOn, setCameraOn] = useState(true);
-  
   const [constructiveBlob, setConstructiveBlob] = useState<Blob | null>(null);
   const [rebuttalBlob, setRebuttalBlob] = useState<Blob | null>(null);
   const [aiCounterText, setAiCounterText] = useState("");
@@ -25,7 +23,6 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Setup Stream (Camera + Audio) for Stage Visualization
   useEffect(() => {
@@ -44,8 +41,6 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
                 return;
             }
             streamRef.current = stream;
-
-            if (videoRef.current) videoRef.current.srcObject = stream;
 
             // Auto-start recording logic is inside the step effect below, relying on streamRef
         } catch (e) {
@@ -166,16 +161,6 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
       setStep('PREP_REBUTTAL');
   };
 
-  const toggleCamera = () => {
-    if (streamRef.current) {
-        const vTrack = streamRef.current.getVideoTracks()[0];
-        if (vTrack) {
-            vTrack.enabled = !cameraOn;
-            setCameraOn(!cameraOn);
-        }
-    }
-  };
-
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -266,28 +251,7 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
                  </div>
 
-                 {/* 2. User Video (Speaker) */}
-                 <div className="relative z-10 w-full max-w-4xl h-[90%] flex items-end justify-center mb-[-2%]">
-                    <div className="relative w-full h-full flex items-center justify-center">
-                        <video 
-                            ref={videoRef} 
-                            autoPlay 
-                            muted 
-                            playsInline 
-                            className={`h-full w-auto max-w-full object-cover rounded-t-3xl shadow-2xl transition-opacity duration-300 ${!cameraOn ? 'opacity-0' : 'opacity-100'}`} 
-                        />
-                        {!cameraOn && (
-                            <div className="absolute inset-0 flex items-center justify-center text-slate-500 bg-slate-900/80 rounded-t-3xl backdrop-blur-sm border border-slate-700">
-                                <div className="flex flex-col items-center gap-4">
-                                    <User size={64} />
-                                    <p className="font-bold">Camera Off</p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                 </div>
-
-                 {/* 3. Microphone Stand Overlay */}
+                 {/* 2. Microphone Stand Overlay */}
                  <div className="absolute bottom-0 z-20 pointer-events-none drop-shadow-2xl filter brightness-75 contrast-125">
                      <svg width="200" height="400" viewBox="0 0 200 400" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-[40vh] w-auto">
                         {/* Mic Head */}
@@ -318,15 +282,9 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
             {/* Control Bar */}
             <div className="w-full bg-slate-900/90 backdrop-blur-md p-6 border-t border-slate-700 z-30">
                 <div className="max-w-3xl mx-auto flex items-center justify-center gap-4 md:gap-10">
-                    <button onClick={toggleCamera} className="p-4 rounded-full bg-slate-800 text-white hover:bg-slate-700 transition-colors border border-slate-600">
-                        {cameraOn ? <Video size={24} /> : <VideoOff size={24} />}
-                    </button>
-                    
                     <button onClick={stopRecording} className="w-20 h-20 rounded-full bg-slate-800 hover:bg-slate-700 border-4 border-red-500/50 flex items-center justify-center transition-all hover:scale-105 animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.4)]">
                         <Square size={32} className="text-red-500 fill-current" />
                     </button>
-                    
-                    <div className="w-14"></div> {/* Spacer for balance */}
                 </div>
                 <p className="text-center text-slate-500 text-xs mt-4 uppercase font-bold tracking-widest">Recording in Progress - Click Square to Finish</p>
             </div>

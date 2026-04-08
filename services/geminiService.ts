@@ -165,14 +165,14 @@ export const generateTopic = async (
   eduLevel: EducationLevel
 ): Promise<string> => {
   const config = EDUCATION_CONSTRAINTS[eduLevel];
-  // Using gemini-3-flash-preview for maximum speed
+  // Using gemini-2.5-flash for maximum speed
   const prompt = `Generate 1 impromptu speech topic for a ${config.target}. 
     Length: 5-12 words. Simple language. 
     Topic Interests: ${interests.join(",")}. Mode: ${mode}.
     Output ONLY topic text.`;
 
   const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.5-flash',
     contents: prompt,
   }));
 
@@ -182,7 +182,7 @@ export const generateTopic = async (
 export const generateDrillChallenges = async (type: DrillType, count: number, language: string, contextTopic: string, eduLevel: EducationLevel): Promise<string[]> => {
     const config = EDUCATION_CONSTRAINTS[eduLevel];
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         contents: `Task: Generate 3 drill challenges for a ${config.target}. Type: ${type}. Context: ${contextTopic}. 
         Constraint: 5-12 words per challenge. Simple wording.
         Language: ${language}. Output as JSON array of strings.`,
@@ -259,7 +259,7 @@ BE THOROUGH. Every field must be substantive and detailed. Do not give generic f
 Output JSON only.`;
 
   const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.5-pro',
     contents: {
         parts: [
             { inlineData: { mimeType: audioBlob.type || 'audio/webm', data: base64Audio } },
@@ -330,7 +330,7 @@ export const generateDebateCounter = async (
     Output ONLY the counter-statement text.`;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         contents: {
             parts: [
                 { inlineData: { mimeType: userBlob.type || 'audio/webm', data: base64Audio } },
@@ -384,7 +384,7 @@ export const analyzeDebateSession = async (
     BE THOROUGH. Cite specific quotes from the user's speeches. Output JSON only.`;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-2.5-pro',
         contents: {
             parts: [
                 { inlineData: { mimeType: constructiveBlob.type || 'audio/webm', data: constructiveBase64 } },
@@ -425,7 +425,7 @@ export const translateText = async (text: string, targetLanguage: string): Promi
     if (!text) return "";
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: `Translate the following text to ${targetLanguage}. Keep the tone professional and educational. Output ONLY the translated text.\n\nText: "${text}"`
         });
         return response.text?.trim() || text;
@@ -437,7 +437,7 @@ export const translateText = async (text: string, targetLanguage: string): Promi
 export const generateTopicOutline = async (topic: string, language: string, eduLevel: EducationLevel): Promise<TopicOutline> => {
     const config = EDUCATION_CONSTRAINTS[eduLevel];
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         contents: `Generate a mindmap for: "${topic}". Level: ${config.target}. Lang: ${language}. JSON: {centralIdea: string, points: string[]}`,
         config: {
             responseMimeType: "application/json",
@@ -458,7 +458,7 @@ export const generateTopicOutline = async (topic: string, language: string, eduL
 export const createCoachChat = (result: AnalysisResult, topic: string, mode: SessionMode, language: string, eduLevel: EducationLevel) => {
   const config = EDUCATION_CONSTRAINTS[eduLevel];
   return ai.chats.create({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.5-flash',
     config: {
       systemInstruction: `You are an AI Speech Coach for a ${config.target}. 
       Vocabulary Constraint: Use ${config.vocabulary}.
@@ -475,7 +475,7 @@ export const analyzeDrillBatch = async (recordings: { blob: Blob, prompt: string
         try {
             const base64Audio = await blobToBase64(rec.blob);
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: {
                     parts: [
                         { inlineData: { mimeType: rec.blob.type || 'audio/webm', data: base64Audio } },
