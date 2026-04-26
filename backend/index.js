@@ -494,7 +494,24 @@ app.get('/api/sessions', async (req, res) => {
   }
 });
 
-// POST session
+// POST session — defensively coerce types so an upstream schema drift
+// (e.g. Claude returning fillerWordCount as an object instead of an int)
+// never causes a 500 on the save path.
+function safeInt(v) {
+  if (typeof v === 'number') return Math.round(v);
+  if (typeof v === 'string') { const n = parseInt(v, 10); return Number.isFinite(n) ? n : 0; }
+  if (v && typeof v === 'object') {
+    if (typeof v.total === 'number') return Math.round(v.total);
+    const sum = Object.values(v).reduce((a, x) => a + (typeof x === 'number' ? x : 0), 0);
+    return Number.isFinite(sum) ? Math.round(sum) : 0;
+  }
+  return 0;
+}
+function safeStr(v, max = 240) {
+  if (typeof v !== 'string') v = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+  return v.length > max ? v.slice(0, max - 1) + '…' : v;
+}
+
 app.post('/api/sessions', async (req, res) => {
   try {
     const s = req.body;
@@ -509,18 +526,24 @@ app.post('/api/sessions', async (req, res) => {
       RETURNING id, created_at`,
       [
         userId,
-        s.topic, s.mode, s.level, s.educationLevel, s.language, s.durationSeconds,
-        s.overallScore, JSON.stringify(s.subScores), s.transcript, s.modelAnswer, s.wpm,
-        s.fillerWordCount, s.sentiment, JSON.stringify(s.structure), JSON.stringify(s.speechFramework),
-        JSON.stringify(s.vocabUpgrades), JSON.stringify(s.grammarAnalysis),
-        JSON.stringify(s.strengths), JSON.stringify(s.weaknesses),
+        safeStr(s.topic, 500), safeStr(s.mode, 60), safeStr(s.level, 60), safeStr(s.educationLevel, 60),
+        safeStr(s.language, 60), safeInt(s.durationSeconds),
+        safeInt(s.overallScore), JSON.stringify(s.subScores ?? {}),
+        typeof s.transcript === 'string' ? s.transcript : '',
+        typeof s.modelAnswer === 'string' ? s.modelAnswer : '',
+        safeInt(s.wpm),
+        safeInt(s.fillerWordCount),
+        safeStr(s.sentiment, 240),
+        JSON.stringify(s.structure ?? {}), JSON.stringify(s.speechFramework ?? []),
+        JSON.stringify(s.vocabUpgrades ?? []), JSON.stringify(s.grammarAnalysis ?? []),
+        JSON.stringify(s.strengths ?? []), JSON.stringify(s.weaknesses ?? []),
         s.debateAnalysis ? JSON.stringify(s.debateAnalysis) : null
       ]
     );
     res.json({ id: result.rows[0].id, date: result.rows[0].created_at });
   } catch (err) {
-    console.error('POST /api/sessions error:', err);
-    res.status(500).json({ error: 'Failed to save session' });
+    console.error('POST /api/sessions error:', err?.message || err);
+    res.status(500).json({ error: 'Failed to save session', message: err?.message });
   }
 });
 

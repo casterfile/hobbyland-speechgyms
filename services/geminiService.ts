@@ -23,6 +23,25 @@ async function aiPost<T>(path: string, body: any): Promise<T> {
   return data as T;
 }
 
+// Belt-and-suspenders: even if the backend slips and returns the wrong shape
+// for fillerWordCount or other render-as-text fields, never let an object
+// reach JSX (React error #31).
+function coerceInt(v: any): number {
+  if (typeof v === 'number') return Math.round(v);
+  if (typeof v === 'string') { const n = parseInt(v, 10); return Number.isFinite(n) ? n : 0; }
+  if (v && typeof v === 'object') {
+    if (typeof v.total === 'number') return Math.round(v.total);
+    const sum = Object.values(v).reduce<number>((a, x) => a + (typeof x === 'number' ? x : 0), 0);
+    return Number.isFinite(sum) ? Math.round(sum) : 0;
+  }
+  return 0;
+}
+function coerceStr(v: any, fallback = ''): string {
+  if (typeof v === 'string') return v;
+  if (v == null) return fallback;
+  try { return JSON.stringify(v); } catch { return fallback; }
+}
+
 export const generateTopic = async (
   interests: string[],
   goal: string,
@@ -86,7 +105,14 @@ export const analyzeSpeech = async (
       suggestion: g.correction,
       reason: g.reason,
     }));
-    return { ...result, wpm, improvements } as AnalysisResult;
+    return {
+      ...result,
+      fillerWordCount: coerceInt((result as any).fillerWordCount),
+      sentiment: coerceStr((result as any).sentiment, 'Neutral'),
+      overallScore: coerceInt((result as any).overallScore),
+      wpm,
+      improvements,
+    } as AnalysisResult;
   } catch (e) {
     console.error('analyzeSpeech failed:', e);
     return {
@@ -152,7 +178,14 @@ export const analyzeDebateSession = async (
       language,
       eduLevel,
     });
-    return { ...result, wpm: 0, improvements: [] } as AnalysisResult;
+    return {
+      ...result,
+      fillerWordCount: coerceInt((result as any).fillerWordCount),
+      sentiment: coerceStr((result as any).sentiment, 'Neutral'),
+      overallScore: coerceInt((result as any).overallScore),
+      wpm: 0,
+      improvements: [],
+    } as AnalysisResult;
   } catch (e) {
     console.error('analyzeDebateSession failed:', e);
     return {

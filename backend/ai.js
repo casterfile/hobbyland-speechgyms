@@ -64,6 +64,34 @@ function parseJson(text) {
   }
 }
 
+// Coerce Claude output into the shapes the frontend (and the sessions DB
+// column types) require. Claude sometimes returns {um: 3, uh: 2, total: 5}
+// for fillerWordCount when we asked for an integer; rendering an object as
+// JSX crashes React, and the integer DB column rejects an object.
+function toInt(v, fallback = 0) {
+  if (typeof v === 'number') return Math.round(v);
+  if (typeof v === 'string') { const n = parseInt(v, 10); return Number.isFinite(n) ? n : fallback; }
+  if (v && typeof v === 'object') {
+    if (typeof v.total === 'number') return Math.round(v.total);
+    // sum numeric leaves
+    const sum = Object.values(v).reduce((a, x) => a + (typeof x === 'number' ? x : 0), 0);
+    return Number.isFinite(sum) ? Math.round(sum) : fallback;
+  }
+  return fallback;
+}
+
+function toShortStr(v, max = 240, fallback = '') {
+  if (typeof v === 'string') return v.length > max ? v.slice(0, max - 1) + '…' : v;
+  if (v == null) return fallback;
+  try { const s = JSON.stringify(v); return s.length > max ? s.slice(0, max - 1) + '…' : s; }
+  catch { return fallback; }
+}
+
+function toStrArr(v) {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => (typeof x === 'string' ? x : (x && typeof x === 'object' ? JSON.stringify(x) : String(x))));
+}
+
 const EDU = {
   ELEMENTARY: { target: '7-9 year old child', vocab: 'Simple words like happy, play, school, friend. No abstract nouns.' },
   MIDDLE_SCHOOL: { target: '11-13 year old', vocab: 'Standard daily English with words like impact, community.' },
@@ -161,18 +189,18 @@ Output ONLY the JSON object with these top-level keys: overallScore, subScores, 
       });
       const r = parseJson(text);
       res.json({
-        overallScore: r.overallScore || 0,
+        overallScore: toInt(r.overallScore),
         subScores: r.subScores || { logic: 0, delivery: 0, structure: 0, vocabulary: 0, emotion: 0 },
-        transcript: r.transcript || transcript,
-        modelAnswer: r.modelAnswer || '',
-        vocabUpgrades: r.vocabUpgrades || [],
-        fillerWordCount: r.fillerWordCount || 0,
+        transcript: typeof r.transcript === 'string' ? r.transcript : transcript,
+        modelAnswer: typeof r.modelAnswer === 'string' ? r.modelAnswer : '',
+        vocabUpgrades: Array.isArray(r.vocabUpgrades) ? r.vocabUpgrades : [],
+        fillerWordCount: toInt(r.fillerWordCount),
         structure: r.structure || { isPrep: false, feedback: 'No analysis available.', point: '', reason: '', example: '', pointRestated: '' },
-        sentiment: r.sentiment || 'Neutral',
-        speechFramework: r.speechFramework || [],
-        grammarAnalysis: r.grammarAnalysis || [],
-        strengths: r.strengths || [],
-        weaknesses: r.weaknesses || [],
+        sentiment: toShortStr(r.sentiment, 240, 'Neutral'),
+        speechFramework: Array.isArray(r.speechFramework) ? r.speechFramework : [],
+        grammarAnalysis: Array.isArray(r.grammarAnalysis) ? r.grammarAnalysis : [],
+        strengths: toStrArr(r.strengths),
+        weaknesses: toStrArr(r.weaknesses),
       });
     } catch (e) {
       console.error('[ai] analyze-speech error:', e?.message || e);
@@ -252,18 +280,18 @@ Output ONLY the JSON object with top-level keys: overallScore, subScores, transc
       });
       const r = parseJson(text);
       res.json({
-        overallScore: r.overallScore || 0,
+        overallScore: toInt(r.overallScore),
         subScores: r.subScores || { logic: 0, delivery: 0, structure: 0, vocabulary: 0, emotion: 0 },
-        transcript: r.transcript || `${constructiveTranscript}\n\n[Rebuttal]\n${rebuttalTranscript}`,
-        modelAnswer: r.modelAnswer || '',
-        vocabUpgrades: r.vocabUpgrades || [],
-        fillerWordCount: r.fillerWordCount || 0,
+        transcript: typeof r.transcript === 'string' ? r.transcript : `${constructiveTranscript}\n\n[Rebuttal]\n${rebuttalTranscript}`,
+        modelAnswer: typeof r.modelAnswer === 'string' ? r.modelAnswer : '',
+        vocabUpgrades: Array.isArray(r.vocabUpgrades) ? r.vocabUpgrades : [],
+        fillerWordCount: toInt(r.fillerWordCount),
         structure: r.structure || { isPrep: false, feedback: 'Debate analysis completed.', point: 'Case', reason: 'Logic', example: 'Evidence', pointRestated: 'Conclusion' },
-        sentiment: r.sentiment || 'Neutral',
-        speechFramework: r.speechFramework || [],
-        grammarAnalysis: r.grammarAnalysis || [],
-        strengths: r.strengths || [],
-        weaknesses: r.weaknesses || [],
+        sentiment: toShortStr(r.sentiment, 240, 'Neutral'),
+        speechFramework: Array.isArray(r.speechFramework) ? r.speechFramework : [],
+        grammarAnalysis: Array.isArray(r.grammarAnalysis) ? r.grammarAnalysis : [],
+        strengths: toStrArr(r.strengths),
+        weaknesses: toStrArr(r.weaknesses),
         debateAnalysis: r.debateAnalysis,
       });
     } catch (e) {
