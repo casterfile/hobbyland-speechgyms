@@ -33,8 +33,6 @@ jobs:
           tags: |
             n8nhobbylandacr.azurecr.io/speechgyms-app:${{ github.sha }}
             n8nhobbylandacr.azurecr.io/speechgyms-app:latest
-          build-args: |
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           file: ./Dockerfile
           no-cache: true
 

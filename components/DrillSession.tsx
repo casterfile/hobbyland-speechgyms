@@ -17,14 +17,51 @@ export const DrillSession: React.FC<Props> = ({ type, language, contextTopic, ed
   const [step, setStep] = useState<'INTRO' | 'COUNTDOWN' | 'PRACTICE' | 'ANALYSIS' | 'RESULT'>('INTRO');
   const [challenges, setChallenges] = useState<string[]>([]);
   const [currentRound, setCurrentRound] = useState(0);
-  const [recordings, setRecordings] = useState<{ blob: Blob, prompt: string }[]>([]);
+  const [recordings, setRecordings] = useState<{ blob: Blob, prompt: string, transcript?: string }[]>([]);
   const [result, setResult] = useState<DrillBatchResult | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [prepCountdown, setPrepCountdown] = useState(10);
   const [timeLeft, setTimeLeft] = useState(45);
-  
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>('');
+  const isRecordingRef = useRef<boolean>(false);
+
+  const startSpeechRecognition = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    transcriptRef.current = '';
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    let langTag = 'en-US';
+    const lang = (language || 'English').toLowerCase();
+    if (lang.includes('cantonese')) langTag = 'yue-Hant-HK';
+    else if (lang.includes('mandarin') || lang.includes('chinese')) langTag = 'zh-CN';
+    else if (lang.includes('spanish')) langTag = 'es-ES';
+    else if (lang.includes('french')) langTag = 'fr-FR';
+    recognition.lang = langTag;
+    recognition.onresult = (event: any) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          transcriptRef.current += (transcriptRef.current ? ' ' : '') + event.results[i][0].transcript.trim();
+        }
+      }
+    };
+    recognition.onerror = (e: any) => console.warn('SR error:', e?.error);
+    recognition.onend = () => { if (isRecordingRef.current) { try { recognition.start(); } catch {} } };
+    try { recognition.start(); recognitionRef.current = recognition; } catch (e) { console.warn(e); }
+  };
+
+  const stopSpeechRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      try { recognitionRef.current.stop(); } catch {}
+    }
+    recognitionRef.current = null;
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -65,11 +102,15 @@ export const DrillSession: React.FC<Props> = ({ type, language, contextTopic, ed
         chunksRef.current = [];
         recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
         recorder.onstop = () => {
+            stopSpeechRecognition();
+            const transcript = transcriptRef.current;
             const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-            handleRoundFinish(blob);
+            handleRoundFinish(blob, transcript);
             stream.getTracks().forEach(t => t.stop());
         };
         recorder.start();
+        isRecordingRef.current = true;
+        startSpeechRecognition();
         setIsRecording(true);
         mediaRecorderRef.current = recorder;
     } catch (e) { alert("Microphone access required."); setStep('INTRO'); }
@@ -77,13 +118,14 @@ export const DrillSession: React.FC<Props> = ({ type, language, contextTopic, ed
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+        isRecordingRef.current = false;
         mediaRecorderRef.current.stop();
         setIsRecording(false);
     }
   };
 
-  const handleRoundFinish = (blob: Blob) => {
-    const newRecordings = [...recordings, { blob, prompt: challenges[currentRound] }];
+  const handleRoundFinish = (blob: Blob, transcript: string) => {
+    const newRecordings = [...recordings, { blob, prompt: challenges[currentRound], transcript }];
     setRecordings(newRecordings);
     if (currentRound < 2) {
         setCurrentRound(prev => prev + 1);
@@ -96,7 +138,7 @@ export const DrillSession: React.FC<Props> = ({ type, language, contextTopic, ed
     }
   };
 
-  const processBatch = async (recs: { blob: Blob, prompt: string }[]) => {
+  const processBatch = async (recs: { blob: Blob, prompt: string, transcript?: string }[]) => {
       try {
           const res = await analyzeDrillBatch(recs, type, language, educationLevel);
           setResult(res);

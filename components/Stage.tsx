@@ -6,7 +6,7 @@ import { Mic, Square, Loader2, Plus, SkipForward, X, AlertTriangle } from 'lucid
 
 interface Props {
   config: SessionConfig;
-  onFinish: (blob: Blob, duration: number) => void;
+  onFinish: (blob: Blob, duration: number, transcript: string) => void;
   onBack: () => void;
 }
 
@@ -27,6 +27,11 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  // Web Speech API — transcribes live in the browser. Self-restarts on silence.
+  const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>('');
+  const isRecordingRef = useRef<boolean>(false);
+  const [liveTranscript, setLiveTranscript] = useState<string>('');
 
   // Prep Timer
   useEffect(() => {
@@ -144,6 +149,50 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
     };
   }, []);
 
+  const startSpeechRecognition = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    transcriptRef.current = '';
+    setLiveTranscript('');
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    let langTag = 'en-US';
+    const lang = (config.language || 'English').toLowerCase();
+    if (lang.includes('cantonese')) langTag = 'yue-Hant-HK';
+    else if (lang.includes('mandarin') || lang.includes('chinese')) langTag = 'zh-CN';
+    else if (lang.includes('spanish')) langTag = 'es-ES';
+    else if (lang.includes('french')) langTag = 'fr-FR';
+    recognition.lang = langTag;
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          transcriptRef.current += (transcriptRef.current ? ' ' : '') + chunk.trim();
+        } else {
+          interim += chunk;
+        }
+      }
+      setLiveTranscript((transcriptRef.current + ' ' + interim).trim());
+    };
+    recognition.onerror = (e: any) => console.warn('SpeechRecognition error:', e?.error);
+    recognition.onend = () => {
+      if (isRecordingRef.current) {
+        try { recognition.start(); } catch {}
+      }
+    };
+    try { recognition.start(); recognitionRef.current = recognition; } catch (e) { console.warn(e); }
+  };
+
+  const stopSpeechRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      try { recognitionRef.current.stop(); } catch {}
+    }
+    recognitionRef.current = null;
+  };
+
   const startRecording = () => {
     if (!streamRef.current || !isReady) return;
     
@@ -170,16 +219,19 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
       };
 
       recorder.onstop = () => {
+        stopSpeechRecognition();
         const finalBlob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
         const finalDuration = (Date.now() - startTimeRef.current) / 1000;
-        onFinish(finalBlob, Math.max(finalDuration, 0.5));
+        onFinish(finalBlob, Math.max(finalDuration, 0.5), transcriptRef.current);
       };
 
       chunksRef.current = [];
       startTimeRef.current = Date.now();
-      
-      recorder.start(500); 
+
+      recorder.start(500);
       mediaRecorderRef.current = recorder;
+      isRecordingRef.current = true;
+      startSpeechRecognition();
       setStageState('RECORDING');
     } catch (err: any) {
       console.error("Critical: Failed to start MediaRecorder:", err);
@@ -189,6 +241,7 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
   };
 
   const stopRecording = () => {
+    isRecordingRef.current = false;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       try {
         mediaRecorderRef.current.stop();
@@ -290,6 +343,18 @@ export const Stage: React.FC<Props> = ({ config, onFinish, onBack }) => {
              </div>
          } />
       </div>
+
+      {/* Live transcript — visible while recording so user knows it's working */}
+      {stageState === 'RECORDING' && (
+        <div className="w-full bg-slate-900/95 border-t border-slate-700 px-6 py-3 z-20">
+          <div className="max-w-3xl mx-auto">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Live Transcript</p>
+            <p className="text-sm text-slate-200 leading-relaxed max-h-20 overflow-y-auto">
+              {liveTranscript || <span className="italic text-slate-500">Listening… start speaking your answer.</span>}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Control Bar */}
       <div className="w-full bg-slate-900/90 backdrop-blur-md p-6 border-t border-slate-700 z-30">

@@ -7,8 +7,32 @@ import { SubscriptionInfo } from '../services/subscriptionService';
 import { SubscriptionBadge } from './SubscriptionBadge';
 import {
   Play, Mic2, Laugh, Scale, HeartHandshake, History,
-  Settings, Trophy, TrendingUp, Calendar, ChevronRight, Sparkles, LogOut, Gift, CreditCard
+  Settings, Trophy, TrendingUp, Calendar, ChevronRight, Sparkles, LogOut, Gift, CreditCard, AlertTriangle
 } from 'lucide-react';
+
+// Voice analysis depends on the browser's SpeechRecognition API. Firefox lacks it.
+// Warn the user upfront so they can switch browsers before recording an answer
+// that won't get transcribed.
+const BrowserCompatBanner: React.FC = () => {
+  const [supported, setSupported] = useState(true);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setSupported(!!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
+    }
+  }, []);
+  if (supported) return null;
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
+      <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
+      <div>
+        <p className="font-bold text-amber-900 text-sm">Voice analysis isn't supported in this browser.</p>
+        <p className="text-amber-800 text-xs leading-relaxed mt-1">
+          Please switch to <span className="font-semibold">Chrome</span>, <span className="font-semibold">Edge</span>, or <span className="font-semibold">Safari</span> to record and score your speeches. The rest of the app still works here.
+        </p>
+      </div>
+    </div>
+  );
+};
 
 interface Props {
   prefs: UserPreferences;
@@ -84,6 +108,7 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
 
   return (
     <div className="min-h-screen w-full max-w-5xl mx-auto p-4 md:p-6 pb-20 animate-fade-in flex flex-col gap-8">
+      <BrowserCompatBanner />
       
       {/* Header */}
       <div className="flex justify-between items-center mt-4">

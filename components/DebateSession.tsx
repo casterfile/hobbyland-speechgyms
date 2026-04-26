@@ -6,7 +6,13 @@ import { Mic, Square, Loader2, Swords, Bot } from 'lucide-react';
 
 interface Props {
   config: SessionConfig;
-  onFinishDebate: (constructiveBlob: Blob, rebuttalBlob: Blob, aiCounter: string) => void;
+  onFinishDebate: (
+    constructiveBlob: Blob,
+    rebuttalBlob: Blob,
+    aiCounter: string,
+    constructiveTranscript: string,
+    rebuttalTranscript: string,
+  ) => void;
   onBack: () => void;
 }
 
@@ -19,10 +25,49 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
   const [constructiveBlob, setConstructiveBlob] = useState<Blob | null>(null);
   const [rebuttalBlob, setRebuttalBlob] = useState<Blob | null>(null);
   const [aiCounterText, setAiCounterText] = useState("");
-  
+  const [constructiveTranscript, setConstructiveTranscript] = useState("");
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  // Web Speech API transcript per round
+  const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>('');
+  const isRecordingRef = useRef<boolean>(false);
+
+  const startSpeechRecognition = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    transcriptRef.current = '';
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    let langTag = 'en-US';
+    const lang = (config.language || 'English').toLowerCase();
+    if (lang.includes('cantonese')) langTag = 'yue-Hant-HK';
+    else if (lang.includes('mandarin') || lang.includes('chinese')) langTag = 'zh-CN';
+    else if (lang.includes('spanish')) langTag = 'es-ES';
+    else if (lang.includes('french')) langTag = 'fr-FR';
+    recognition.lang = langTag;
+    recognition.onresult = (event: any) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          transcriptRef.current += (transcriptRef.current ? ' ' : '') + event.results[i][0].transcript.trim();
+        }
+      }
+    };
+    recognition.onerror = (e: any) => console.warn('SR error:', e?.error);
+    recognition.onend = () => { if (isRecordingRef.current) { try { recognition.start(); } catch {} } };
+    try { recognition.start(); recognitionRef.current = recognition; } catch (e) { console.warn(e); }
+  };
+
+  const stopSpeechRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      try { recognitionRef.current.stop(); } catch {}
+    }
+    recognitionRef.current = null;
+  };
 
   // Setup Stream (Camera + Audio) for Stage Visualization
   useEffect(() => {
@@ -91,11 +136,15 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
       chunksRef.current = [];
       recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = () => {
+        stopSpeechRecognition();
+        const finalTranscript = transcriptRef.current;
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        handleRecordingComplete(blob, currentStep);
+        handleRecordingComplete(blob, currentStep, finalTranscript);
       };
       recorder.start();
       mediaRecorderRef.current = recorder;
+      isRecordingRef.current = true;
+      startSpeechRecognition();
       setRecordingTime(config.durationSeconds);
     } catch (e) {
       console.error("Mic error", e);
@@ -103,27 +152,26 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
   };
 
   const stopRecording = () => {
-    // Robust stop logic: Check if exists and is not inactive
+    isRecordingRef.current = false;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
         mediaRecorderRef.current.stop();
       } catch (e) {
         console.error("Error stopping recorder", e);
-        // Fallback: Manually trigger completion if stop() throws
+        stopSpeechRecognition();
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        handleRecordingComplete(blob, step);
+        handleRecordingComplete(blob, step, transcriptRef.current);
       }
     } else {
-        // Fallback if state is already inactive but UI didn't update
         if (chunksRef.current.length > 0) {
+            stopSpeechRecognition();
             const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-            handleRecordingComplete(blob, step);
+            handleRecordingComplete(blob, step, transcriptRef.current);
         }
     }
   };
 
-  const handleRecordingComplete = async (blob: Blob, currentStep: DebateStep) => {
-    // Teardown stream for this step
+  const handleRecordingComplete = async (blob: Blob, currentStep: DebateStep, transcript: string) => {
     if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
         streamRef.current = null;
@@ -131,14 +179,16 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
 
     if (currentStep === 'RECORD_CONSTRUCTIVE') {
       setConstructiveBlob(blob);
+      setConstructiveTranscript(transcript);
       setStep('AI_THINKING');
       try {
         const counter = await generateDebateCounter(
-            blob, 
-            config.topic, 
-            config.debateSide || 'AFFIRMATIVE', 
-            config.language, 
-            config.educationLevel
+            blob,
+            config.topic,
+            config.debateSide || 'AFFIRMATIVE',
+            config.language,
+            config.educationLevel,
+            transcript,
         );
         setAiCounterText(counter);
         setStep('AI_COUNTER');
@@ -151,7 +201,7 @@ export const DebateSession: React.FC<Props> = ({ config, onFinishDebate, onBack 
       setRebuttalBlob(blob);
       setStep('FINISHING');
       if (constructiveBlob) {
-        onFinishDebate(constructiveBlob, blob, aiCounterText);
+        onFinishDebate(constructiveBlob, blob, aiCounterText, constructiveTranscript, transcript);
       }
     }
   };

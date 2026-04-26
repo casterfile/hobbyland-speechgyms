@@ -168,20 +168,21 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isAnalyzing]);
 
-  const handleSessionFinish = async (audioBlob: Blob, duration: number) => {
+  const handleSessionFinish = async (audioBlob: Blob, duration: number, transcript: string) => {
     setIsAnalyzing(true);
     setAnalysisError(false);
     setCurrentAudioBlob(audioBlob);
     setRecordedDuration(duration);
     try {
       const result = await analyzeSpeech(
-        audioBlob, 
-        sessionConfig.topic, 
-        duration, 
-        sessionConfig.mode, 
-        sessionConfig.language, 
+        audioBlob,
+        sessionConfig.topic,
+        duration,
+        sessionConfig.mode,
+        sessionConfig.language,
         sessionConfig.level,
-        sessionConfig.educationLevel
+        sessionConfig.educationLevel,
+        transcript,
       );
       setAnalysisResult(result);
       const historyItem: HistoryItem = {
@@ -204,7 +205,13 @@ export default function App() {
     }
   };
 
-  const handleDebateFinish = async (constructiveBlob: Blob, rebuttalBlob: Blob, aiCounter: string) => {
+  const handleDebateFinish = async (
+    constructiveBlob: Blob,
+    rebuttalBlob: Blob,
+    aiCounter: string,
+    constructiveTranscript: string,
+    rebuttalTranscript: string,
+  ) => {
     setIsAnalyzing(true);
     setAnalysisError(false);
     setCurrentAudioBlob(rebuttalBlob); // We use the final rebuttal as the main audio for review
@@ -217,7 +224,9 @@ export default function App() {
         sessionConfig.topic,
         sessionConfig.debateSide || 'AFFIRMATIVE',
         sessionConfig.language,
-        sessionConfig.educationLevel
+        sessionConfig.educationLevel,
+        constructiveTranscript,
+        rebuttalTranscript,
       );
       setAnalysisResult(result);
       const historyItem: HistoryItem = {

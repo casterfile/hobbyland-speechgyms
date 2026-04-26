@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AnalysisResult, SessionMode, EducationLevel } from '../types';
 import { createCoachChat } from '../services/geminiService';
 import { Send, User, Bot, Loader2, Sparkles, Mic, Volume2, VolumeX } from 'lucide-react';
-import { GenerateContentResponse } from "@google/genai";
 
 interface Props {
   result: AnalysisResult;
@@ -72,7 +71,7 @@ export const VirtualCoach: React.FC<Props> = ({ result, topic, mode, language, e
     const startConversation = async () => {
       setIsLoading(true);
       try {
-        const response: GenerateContentResponse = await chatSessionRef.current.sendMessage({
+        const response = await chatSessionRef.current.sendMessage({
           message: `Greet the user for their ${eduLevel} level speech on "${topic}". Briefly mention a specific positive from their transcript.`
         });
         setMessages([{ role: 'model', text: response.text || "Hello! Ready to review?" }]);
@@ -120,7 +119,7 @@ export const VirtualCoach: React.FC<Props> = ({ result, topic, mode, language, e
     setMessages(prev => [...prev, { role: 'user', text: textToSend }]);
     setIsLoading(true);
     try {
-      const response: GenerateContentResponse = await chatSessionRef.current.sendMessage({ message: textToSend });
+      const response = await chatSessionRef.current.sendMessage({ message: textToSend });
       setMessages(prev => [...prev, { role: 'model', text: response.text || "Interesting point." }]);
     } catch (e) {
       setMessages(prev => [...prev, { role: 'model', text: "Sorry, I lost my connection." }]);

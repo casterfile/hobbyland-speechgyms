@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { registerAIRoutes } from './ai.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -99,7 +100,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   }
 });
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -441,8 +442,11 @@ app.post('/api/trial-code/redeem', requireAuth, async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.0.4' });
+  res.json({ status: 'ok', version: '1.0.5' });
 });
+
+// AI proxy routes (Claude — keys never reach the browser)
+registerAIRoutes(app);
 
 // GET sessions (history) - filtered by user if logged in
 app.get('/api/sessions', async (req, res) => {

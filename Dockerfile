@@ -1,11 +1,11 @@
 # Stage 1: Build frontend
+# AI provider keys are NOT baked into the frontend bundle anymore — they live
+# on the backend at runtime via Azure App Settings.
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
-ARG GEMINI_API_KEY=""
 COPY package*.json ./
 RUN npm ci
 COPY . .
-RUN echo "GEMINI_API_KEY=${GEMINI_API_KEY}" > .env
 RUN npm run build
 
 # Stage 2: Install backend dependencies
@@ -20,7 +20,7 @@ WORKDIR /app
 
 # Copy backend
 COPY --from=backend-builder /app/backend/node_modules ./node_modules
-COPY backend/package.json backend/index.js ./
+COPY backend/package.json backend/index.js backend/ai.js ./
 
 # Copy frontend build into public folder (served by Express)
 COPY --from=frontend-builder /app/frontend/dist ./public
