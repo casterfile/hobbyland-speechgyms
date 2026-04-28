@@ -1,7 +1,7 @@
 // AI proxy routes — all live on the backend so provider keys never reach the
-// browser bundle. Mirror of the slayjobs architecture: Claude for text,
-// Web Speech API in the browser for transcription, Claude for analysis on
-// the resulting transcript. No Gemini, no OpenRouter, no third-party audio API.
+// browser bundle. Architecture: Claude (text + analysis), Web Speech API in
+// the browser for live transcription, Gemini as the server-side audio
+// fallback for browsers without Web Speech support (Safari iOS, etc.).
 
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -103,6 +103,36 @@ const eduConfig = (level) => EDU[level] || EDU.UNIVERSITY;
 
 const JSON_ONLY = '\n\nRespond with ONLY a JSON object/array. No preamble, no markdown fences. Start with { or [.';
 
+// Server-side audio fallback. Browser sends `audioBase64` when Web Speech API
+// is unavailable; we transcribe with Gemini (cheapest audio-capable model
+// we have on Azure) and let the existing Claude analysis run on the result.
+async function transcribeWithGemini(audioBase64, mimeType = 'audio/webm') {
+  const key = process.env.GEMINI_API_KEY || '';
+  if (!key) throw new Error('GEMINI_API_KEY not configured on server');
+  const body = {
+    contents: [{
+      role: 'user',
+      parts: [
+        { inlineData: { mimeType, data: audioBase64 } },
+        { text: 'Transcribe this audio verbatim. Output ONLY the transcribed text — no preamble, no markdown, no quotes. If silent, output exactly: [No speech detected]' },
+      ],
+    }],
+    generationConfig: { temperature: 0.0, maxOutputTokens: 2048 },
+  };
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Gemini transcribe ${res.status}: ${(await res.text()).slice(0, 250)}`);
+  }
+  const data = await res.json();
+  return (data.candidates?.[0]?.content?.parts || [])
+    .map((p) => p.text).filter(Boolean).join('').trim();
+}
+
 // Mount /api/ai/* on the given Express app, after auth middleware.
 export function registerAIRoutes(app) {
   // POST /api/ai/topic
@@ -149,11 +179,20 @@ Language: ${language}. Output as a JSON array of strings.${JSON_ONLY}`;
   });
 
   // POST /api/ai/analyze-speech — transcript-based (Web Speech API on the client)
+  // with a Gemini-server-side audio fallback for browsers that can't transcribe.
   app.post('/api/ai/analyze-speech', async (req, res) => {
     try {
-      const { transcript = '', topic = '', duration = 0, mode = 'IMPROMPTU', language = 'English', level = 'INTERMEDIATE', eduLevel = 'UNIVERSITY' } = req.body || {};
+      const { transcript: rawTranscript = '', audioBase64 = '', audioMimeType = 'audio/webm', topic = '', duration = 0, mode = 'IMPROMPTU', language = 'English', level = 'INTERMEDIATE', eduLevel = 'UNIVERSITY' } = req.body || {};
+      let transcript = rawTranscript;
+      if ((!transcript || !transcript.trim()) && audioBase64) {
+        try {
+          transcript = await transcribeWithGemini(audioBase64, audioMimeType);
+        } catch (e) {
+          console.warn('[ai] gemini transcribe (analyze-speech) failed:', e?.message || e);
+        }
+      }
       if (!transcript || !transcript.trim()) {
-        return res.status(400).json({ error: 'transcript is required' });
+        return res.status(400).json({ error: 'transcript or audioBase64 is required' });
       }
       const cfg = eduConfig(eduLevel);
       const prompt = `You are a world-class Speech Coach and Rhetoric Professor evaluating a ${cfg.target}.
@@ -366,7 +405,7 @@ Return JSON: {"centralIdea": string, "points": string[]}.${JSON_ONLY}`;
     }
   });
 
-  // POST /api/ai/analyze-drill-batch — array of { transcript, prompt }
+  // POST /api/ai/analyze-drill-batch — array of { transcript, prompt } or { audioBase64, prompt }
   app.post('/api/ai/analyze-drill-batch', async (req, res) => {
     try {
       const { recordings = [], type = 'LOGIC', language = 'English', eduLevel = 'UNIVERSITY' } = req.body || {};
@@ -374,8 +413,20 @@ Return JSON: {"centralIdea": string, "points": string[]}.${JSON_ONLY}`;
         return res.status(400).json({ error: 'recordings array required' });
       }
       const cfg = eduConfig(eduLevel);
+      // Per-recording: prefer client transcript; fall back to Gemini if only audio supplied.
+      const enriched = await Promise.all(recordings.map(async (r) => {
+        let t = (r.transcript || '').trim();
+        if (!t && r.audioBase64) {
+          try {
+            t = await transcribeWithGemini(r.audioBase64, r.audioMimeType || 'audio/webm');
+          } catch (e) {
+            console.warn('[ai] gemini transcribe (drill-batch) failed:', e?.message || e);
+          }
+        }
+        return { ...r, transcript: t || '(silence)' };
+      }));
       // One Claude call analyzes all rounds together — better context, cheaper.
-      const transcriptBlock = recordings.map((r, i) => `Round ${i + 1}\nPrompt: "${r.prompt || ''}"\nTranscript: ${r.transcript || '(silence)'}`).join('\n\n');
+      const transcriptBlock = enriched.map((r, i) => `Round ${i + 1}\nPrompt: "${r.prompt || ''}"\nTranscript: ${r.transcript}`).join('\n\n');
       const prompt = `Analyze ${recordings.length} ${type} drill rounds for a ${cfg.target}. Language: ${language}.
 
 ${transcriptBlock}
