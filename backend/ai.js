@@ -1,63 +1,50 @@
 // AI proxy routes — all live on the backend so provider keys never reach the
-// browser bundle. Web Speech API in the browser does transcription, Claude
-// (routed through OpenRouter) does the analysis.
-//
-// Single-key mode: every text call goes through OpenRouter using
-// anthropic/claude-* model IDs. Same Claude models as before, just
-// proxied. Anthropic-direct dependency removed so a dry Anthropic balance
-// can never break this app again.
+// browser bundle. Mirror of the slayjobs architecture: Claude for text,
+// Web Speech API in the browser for transcription, Claude for analysis on
+// the resulting transcript. No Gemini, no OpenRouter, no third-party audio API.
 
-// OpenRouter key is hardcoded on purpose (Tony OK'd 2026-04-28). To rotate,
-// edit this literal and redeploy.
-const OPENROUTER_API_KEY = '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';
+import Anthropic from '@anthropic-ai/sdk';
 
-// Friendly slayjobs/speechgyms model names → OpenRouter model IDs.
-// Both Claude families are first-party on OR with identical pricing to
-// direct Anthropic ($3/$15 per 1M for Sonnet 4.6, $1/$5 for Haiku 4.5).
+const primaryKey = process.env.ANTHROPIC_API_KEY || '';
+const fallbackKey = process.env.ANTHROPIC_API_KEY_FALLBACK || '';
+
+const primaryClient = primaryKey ? new Anthropic({ apiKey: primaryKey }) : null;
+const fallbackClient = fallbackKey ? new Anthropic({ apiKey: fallbackKey }) : null;
+
 const TEXT_MODEL = 'claude-sonnet-4-6';
 const FAST_MODEL = 'claude-haiku-4-5';
-const MODEL_MAP = {
-  'claude-sonnet-4-6': 'anthropic/claude-sonnet-4.6',
-  'claude-haiku-4-5':  'anthropic/claude-haiku-4.5',
-  'claude-opus-4-7':   'anthropic/claude-opus-4.7',
-};
 
-async function callOpenRouterChat({ model, system, messages, maxTokens = 4096 }) {
-  const orModel = MODEL_MAP[model] || model;
-  const orMessages = [];
-  if (system) orMessages.push({ role: 'system', content: system });
-  for (const m of messages) orMessages.push({ role: m.role, content: m.content });
-
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://www.speechgyms.com',
-      'X-Title': 'SpeechGyms',
-    },
-    body: JSON.stringify({
-      model: orModel,
-      messages: orMessages,
-      max_tokens: maxTokens,
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenRouter ${res.status}: ${errText.slice(0, 300)}`);
-  }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || '';
+function joinTextBlocks(content) {
+  return (content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
 }
 
-// Compatibility shim — every existing route in this file calls runClaude(...)
-// with the same arg shape. Keep that signature so route handlers stay
-// untouched. cacheSystem is accepted but ignored (Anthropic prompt caching
-// doesn't pass cleanly through OR's OpenAI-format proxy; the cost difference
-// is small at this app's traffic level).
 async function runClaude({ model, system, messages, maxTokens = 4096, cacheSystem = false }) {
-  return callOpenRouterChat({ model, system, messages, maxTokens });
+  if (!primaryClient) throw new Error('ANTHROPIC_API_KEY not configured on server');
+  const sys = cacheSystem
+    ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+    : system;
+  const call = async (client) => {
+    const resp = await client.messages.create({
+      model,
+      max_tokens: maxTokens,
+      system: sys,
+      messages,
+    });
+    return joinTextBlocks(resp.content);
+  };
+  try {
+    return await call(primaryClient);
+  } catch (err) {
+    const status = err?.status;
+    if ((status === 429 || status >= 500) && fallbackClient) {
+      console.warn('[anthropic] primary failed, rotating to fallback');
+      return await call(fallbackClient);
+    }
+    throw err;
+  }
 }
 
 function parseJson(text) {
@@ -376,36 +363,6 @@ Return JSON: {"centralIdea": string, "points": string[]}.${JSON_ONLY}`;
     } catch (e) {
       console.error('[ai] coach-chat error:', e?.message || e);
       res.status(500).json({ error: 'Failed', text: 'Sorry, I lost my connection.' });
-    }
-  });
-
-  // GET /api/ai/openrouter-health — diagnostic. Probes OR with a tiny
-  // chat completion. Useful for telling at a glance whether the configured
-  // OPENROUTER_API_KEY is healthy from inside this deployed container
-  // (vs. blocked by an account-level ToS flag, exhausted credit, etc.).
-  app.get('/api/ai/openrouter-health', async (_req, res) => {
-    const startedAt = Date.now();
-    try {
-      const text = await callOpenRouterChat({
-        model: FAST_MODEL,
-        system: 'You are a health probe. Reply briefly.',
-        messages: [{ role: 'user', content: 'Reply with the single word: pong' }],
-        maxTokens: 5,
-      });
-      res.json({
-        ok: true,
-        ms: Date.now() - startedAt,
-        model: MODEL_MAP[FAST_MODEL],
-        text,
-        verdict: 'OPENROUTER_HEALTHY',
-      });
-    } catch (e) {
-      res.json({
-        ok: false,
-        ms: Date.now() - startedAt,
-        error: e?.message || String(e),
-        verdict: 'OPENROUTER_DOWN — review error',
-      });
     }
   });
 
