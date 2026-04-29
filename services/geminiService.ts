@@ -23,6 +23,22 @@ async function aiPost<T>(path: string, body: any): Promise<T> {
   return data as T;
 }
 
+// Convert a recorded audio Blob to a base64 string + mime type the backend
+// can hand to Gemini for server-side transcription. We use this whenever the
+// browser's live Web Speech API didn't produce a transcript (Safari iOS,
+// permission-denied tabs, recognition flake-outs, etc.).
+async function blobToBase64(blob: Blob): Promise<{ base64: string; mimeType: string }> {
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  // btoa on chunks to avoid call-stack overflow on multi-MB recordings.
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+  }
+  return { base64: btoa(binary), mimeType: blob.type || 'audio/webm' };
+}
+
 // Belt-and-suspenders: even if the backend slips and returns the wrong shape
 // for fillerWordCount or other render-as-text fields, never let an object
 // reach JSX (React error #31).
@@ -76,7 +92,7 @@ export const generateDrillChallenges = async (
 };
 
 export const analyzeSpeech = async (
-  _audioBlob: Blob,
+  audioBlob: Blob,
   topic: string,
   duration: number,
   mode: SessionMode,
@@ -86,7 +102,7 @@ export const analyzeSpeech = async (
   liveTranscript?: string,
 ): Promise<AnalysisResult> => {
   try {
-    const result = await aiPost<AnalysisResult>('/analyze-speech', {
+    const body: any = {
       transcript: liveTranscript || '',
       topic,
       duration,
@@ -94,7 +110,15 @@ export const analyzeSpeech = async (
       language,
       level,
       eduLevel,
-    });
+    };
+    // If Web Speech API didn't produce a transcript, ship the raw recording so
+    // the backend can transcribe it server-side via Gemini.
+    if ((!body.transcript || !body.transcript.trim()) && audioBlob && audioBlob.size > 0) {
+      const { base64, mimeType } = await blobToBase64(audioBlob);
+      body.audioBase64 = base64;
+      body.audioMimeType = mimeType;
+    }
+    const result = await aiPost<AnalysisResult>('/analyze-speech', body);
     // Compute WPM client-side from the transcript Claude echoed back.
     const transcript = result.transcript || liveTranscript || '';
     const isCjk = language.toLowerCase().includes('chinese') || language.toLowerCase().includes('cantonese') || language.toLowerCase().includes('mandarin');
@@ -273,7 +297,18 @@ export const analyzeDrillBatch = async (
   eduLevel: EducationLevel
 ): Promise<DrillBatchResult> => {
   try {
-    const payload = recordings.map((r) => ({ transcript: r.transcript || '', prompt: r.prompt }));
+    // For each round: prefer the live transcript; if missing, ship the raw blob
+    // so the backend can transcribe it via Gemini.
+    const payload = await Promise.all(recordings.map(async (r) => {
+      const t = (r.transcript || '').trim();
+      const out: any = { transcript: t, prompt: r.prompt };
+      if (!t && r.blob && r.blob.size > 0) {
+        const { base64, mimeType } = await blobToBase64(r.blob);
+        out.audioBase64 = base64;
+        out.audioMimeType = mimeType;
+      }
+      return out;
+    }));
     const { rounds, overallImprovement, nextSteps } = await aiPost<DrillBatchResult>('/analyze-drill-batch', {
       recordings: payload,
       type,
