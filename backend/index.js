@@ -132,6 +132,32 @@ const requireAuth = (req, res, next) => {
 
 app.use(authMiddleware);
 
+// Lightweight self-migration so the device-id flow works without a separate
+// migration step. ADD COLUMN IF NOT EXISTS is a no-op after the first boot.
+(async () => {
+  try {
+    await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS device_id TEXT`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_sessions_device_id ON sessions (device_id)`);
+  } catch (e) {
+    console.error('sessions device_id migration failed:', e?.message || e);
+  }
+})();
+
+// Helper: claim any anonymous sessions left behind by a device for the
+// currently-authed user. Idempotent and cheap (indexed lookup).
+async function claimDeviceSessions(userId, deviceId) {
+  if (!userId || !deviceId) return;
+  try {
+    await pool.query(
+      `UPDATE sessions SET user_id = $1
+       WHERE user_id IS NULL AND device_id = $2`,
+      [userId, deviceId]
+    );
+  } catch (e) {
+    console.error('claimDeviceSessions failed:', e?.message || e);
+  }
+}
+
 // ==================== AUTH ROUTES ====================
 
 // Step 1: Redirect to Google OAuth
@@ -213,8 +239,12 @@ app.get('/api/auth/google/callback', async (req, res) => {
 });
 
 // Get current user
-app.get('/api/auth/me', (req, res) => {
+app.get('/api/auth/me', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+  // First post-login fetch is the natural moment to attribute pre-login
+  // sessions saved on this device to the now-known user.
+  const deviceId = req.headers['x-device-id'] || null;
+  if (deviceId) await claimDeviceSessions(req.user.id, deviceId);
   res.json(req.user);
 });
 
@@ -448,14 +478,31 @@ app.get('/api/health', (req, res) => {
 // AI proxy routes (Claude — keys never reach the browser)
 registerAIRoutes(app);
 
-// GET sessions (history) - filtered by user if logged in
+// GET sessions (history) - filtered by user if logged in, by device otherwise.
+// A logged-in user also gets their device's leftover anon sessions, so a
+// session saved before login isn't orphaned. The first call after login also
+// claims those rows, so subsequent fetches no longer rely on the device join.
 app.get('/api/sessions', async (req, res) => {
   try {
     const userId = req.user?.id;
-    const query = userId
-      ? 'SELECT * FROM sessions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50'
-      : 'SELECT * FROM sessions WHERE user_id IS NULL ORDER BY created_at DESC LIMIT 50';
-    const params = userId ? [userId] : [];
+    const deviceId = req.headers['x-device-id'] || null;
+    if (userId) await claimDeviceSessions(userId, deviceId);
+    let query, params;
+    if (userId) {
+      query = `SELECT * FROM sessions
+               WHERE user_id = $1
+                  OR (user_id IS NULL AND device_id = $2)
+               ORDER BY created_at DESC LIMIT 50`;
+      params = [userId, deviceId];
+    } else if (deviceId) {
+      query = `SELECT * FROM sessions
+               WHERE user_id IS NULL AND device_id = $1
+               ORDER BY created_at DESC LIMIT 50`;
+      params = [deviceId];
+    } else {
+      // No identity at all — return nothing rather than the global anon pool.
+      return res.json([]);
+    }
     const result = await pool.query(query, params);
     const sessions = result.rows.map(row => ({
       id: row.id.toString(),
@@ -516,13 +563,16 @@ app.post('/api/sessions', async (req, res) => {
   try {
     const s = req.body;
     const userId = req.user?.id || null;
+    const deviceId = req.headers['x-device-id'] || null;
+    if (userId) await claimDeviceSessions(userId, deviceId);
     const result = await pool.query(
       `INSERT INTO sessions (
         user_id, topic, mode, level, education_level, language, duration_seconds,
         overall_score, sub_scores, transcript, model_answer, wpm,
         filler_word_count, sentiment, structure, speech_framework,
-        vocab_upgrades, grammar_analysis, strengths, weaknesses, debate_analysis
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+        vocab_upgrades, grammar_analysis, strengths, weaknesses, debate_analysis,
+        device_id
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
       RETURNING id, created_at`,
       [
         userId,
@@ -537,7 +587,8 @@ app.post('/api/sessions', async (req, res) => {
         JSON.stringify(s.structure ?? {}), JSON.stringify(s.speechFramework ?? []),
         JSON.stringify(s.vocabUpgrades ?? []), JSON.stringify(s.grammarAnalysis ?? []),
         JSON.stringify(s.strengths ?? []), JSON.stringify(s.weaknesses ?? []),
-        s.debateAnalysis ? JSON.stringify(s.debateAnalysis) : null
+        s.debateAnalysis ? JSON.stringify(s.debateAnalysis) : null,
+        deviceId
       ]
     );
     res.json({ id: result.rows[0].id, date: result.rows[0].created_at });

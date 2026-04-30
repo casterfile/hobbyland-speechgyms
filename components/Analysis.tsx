@@ -24,6 +24,9 @@ interface Props {
   onStartDrill?: (type: DrillType) => void;
   subscriptionInfo?: SubscriptionInfo | null;
   onUpgrade?: () => void;
+  saveError?: string | null;
+  onRetrySave?: () => void;
+  retryingSave?: boolean;
 }
 
 const FadeUpgrade: React.FC<{ onUpgrade?: () => void; label?: string }> = ({ onUpgrade, label = "Upgrade to See Full Analysis" }) => (
@@ -138,7 +141,7 @@ const TranscriptHighlighter: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, recordedDuration = 0, topic = "Your Speech", language = "English", onHome, onStartDrill, subscriptionInfo, onUpgrade }) => {
+export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, recordedDuration = 0, topic = "Your Speech", language = "English", onHome, onStartDrill, subscriptionInfo, onUpgrade, saveError, onRetrySave, retryingSave }) => {
   const isPaid = subscriptionInfo?.tier === 'paid' || subscriptionInfo?.tier === 'trial';
   const isSpeech = mode === SessionMode.SPEECH;
   const [activeFrameworkIndex, setActiveFrameworkIndex] = useState(0);
@@ -231,6 +234,23 @@ export const Analysis: React.FC<Props> = ({ result, onRestart, mode, audioBlob, 
 
   return (
     <div className="w-full min-h-screen bg-slate-900 overflow-y-auto pb-20">
+      {saveError && (
+        <div className="w-full bg-red-900/40 border-b border-red-700/50 px-4 py-3 flex items-center justify-center gap-3 text-sm">
+          <AlertCircle size={18} className="text-red-400 shrink-0" />
+          <span className="text-red-200">
+            Couldn't save this session{saveError ? ` — ${saveError}` : ''}. It's stored locally and will be retried.
+          </span>
+          {onRetrySave && (
+            <button
+              onClick={onRetrySave}
+              disabled={retryingSave}
+              className="px-3 py-1 rounded-md bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-semibold"
+            >
+              {retryingSave ? 'Retrying…' : 'Retry now'}
+            </button>
+          )}
+        </div>
+      )}
       <div className="w-full bg-slate-800 border-b border-slate-700 p-4 pt-12 md:pt-6 sticky top-0 z-50 backdrop-blur-md bg-opacity-90 shadow-md">
         <div className="max-w-6xl w-[95%] mx-auto flex justify-between items-center gap-4 relative">
           <div className="relative">

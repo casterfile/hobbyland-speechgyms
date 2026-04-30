@@ -9,7 +9,7 @@ import { History } from './components/History';
 import { DrillSession } from './components/DrillSession';
 import { DebateSession } from './components/DebateSession';
 import { analyzeSpeech, analyzeDebateSession } from './services/geminiService';
-import { saveHistoryItem } from './services/historyService';
+import { saveHistoryItem, retryPendingSaves } from './services/historyService';
 import { User, getCurrentUser, handleAuthCallback, loginWithGoogle, logout } from './services/authService';
 import { SubscriptionInfo, subscriptionService } from './services/subscriptionService';
 import { PricingPage } from './components/PricingPage';
@@ -101,11 +101,32 @@ export default function App() {
   
   const [activeDrillType, setActiveDrillType] = useState<DrillType>(DrillType.LOGIC);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [lastUnsavedItem, setLastUnsavedItem] = useState<HistoryItem | null>(null);
+  const [retryingSave, setRetryingSave] = useState(false);
+
   const handleGoHome = () => {
     setAnalysisResult(null);
     setCurrentAudioBlob(null);
     setAnalysisError(false);
     setStep(AppStep.HOME);
+  };
+
+  const handleRetrySave = async () => {
+    setRetryingSave(true);
+    let result;
+    if (lastUnsavedItem) {
+      result = await saveHistoryItem(lastUnsavedItem);
+    } else {
+      result = await retryPendingSaves();
+    }
+    setRetryingSave(false);
+    if (result.ok) {
+      setSaveError(null);
+      setLastUnsavedItem(null);
+    } else {
+      setSaveError(result.error || 'Save failed');
+    }
   };
 
   const handleStartSessionFromHome = (mode?: SessionMode) => {
@@ -194,9 +215,16 @@ export default function App() {
         score: result.overallScore,
         wpm: result.wpm,
         sentiment: result.sentiment,
-        fullResult: result 
+        fullResult: result
       };
-      await saveHistoryItem(historyItem);
+      const saveRes = await saveHistoryItem(historyItem);
+      if (saveRes.ok) {
+        setSaveError(null);
+        setLastUnsavedItem(null);
+      } else {
+        setSaveError(saveRes.error || 'Save failed');
+        setLastUnsavedItem(historyItem);
+      }
       setIsAnalyzing(false);
       setStep(AppStep.ANALYSIS);
     } catch (e) {
@@ -238,9 +266,16 @@ export default function App() {
         score: result.overallScore,
         wpm: result.wpm,
         sentiment: result.sentiment,
-        fullResult: result 
+        fullResult: result
       };
-      await saveHistoryItem(historyItem);
+      const saveRes = await saveHistoryItem(historyItem);
+      if (saveRes.ok) {
+        setSaveError(null);
+        setLastUnsavedItem(null);
+      } else {
+        setSaveError(saveRes.error || 'Save failed');
+        setLastUnsavedItem(historyItem);
+      }
       setIsAnalyzing(false);
       setStep(AppStep.ANALYSIS);
     } catch (e) {
@@ -312,6 +347,9 @@ export default function App() {
             recordedDuration={recordedDuration}
             topic={sessionConfig.topic}
             language={sessionConfig.language}
+            saveError={saveError}
+            onRetrySave={handleRetrySave}
+            retryingSave={retryingSave}
             onHome={handleGoHome}
             onStartDrill={handleStartDrill}
             subscriptionInfo={subscriptionInfo}
