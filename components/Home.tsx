@@ -238,7 +238,9 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <History size={18} className="text-purple-400" /> Recent Sessions
                   </h3>
-                  <button onClick={onViewHistory} className="text-sm text-blue-400 hover:text-blue-300">View All</button>
+                  {history.length > 0 && (
+                    <button onClick={onViewHistory} className="text-sm text-blue-400 hover:text-blue-300">View All</button>
+                  )}
               </div>
               
               <div className="space-y-3">
