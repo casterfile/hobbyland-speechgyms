@@ -9,7 +9,8 @@ export enum AppStep {
   DEBATE_SESSION = 'DEBATE_SESSION',
   PRICING = 'PRICING',
   PRIVACY = 'PRIVACY',
-  TERMS = 'TERMS'
+  TERMS = 'TERMS',
+  HISTORY = 'HISTORY'
 }
 
 export enum SessionMode {

@@ -5,6 +5,7 @@ import { SessionSetup } from './components/SessionSetup';
 import { Stage } from './components/Stage';
 import { Analysis } from './components/Analysis';
 import { Home } from './components/Home';
+import { History } from './components/History';
 import { DrillSession } from './components/DrillSession';
 import { DebateSession } from './components/DebateSession';
 import { analyzeSpeech, analyzeDebateSession } from './services/geminiService';
@@ -256,7 +257,8 @@ export default function App() {
          <div className={`absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] transition-colors duration-1000 ${sessionConfig.mode === SessionMode.SPEECH ? 'bg-teal-900/20' : 'bg-purple-900/20'}`}></div>
       </div>
       <div className="relative z-10">
-        {step === AppStep.HOME && <Home prefs={userPrefs} onStartSession={handleStartSessionFromHome} onViewHistory={() => {}} onOpenSettings={() => setStep(AppStep.SETUP)} onViewSession={handleViewSession} currentUser={currentUser} authLoading={authLoading} onLogin={loginWithGoogle} onLogout={logout} subscriptionInfo={subscriptionInfo} onOpenPricing={() => setStep(AppStep.PRICING)} onRedeemCode={() => setShowTrialCodeModal(true)} onManageSubscription={async () => { try { const { url } = await subscriptionService.createPortalSession(); window.location.href = url; } catch (e) { console.error(e); } }} onPrivacy={() => setStep(AppStep.PRIVACY)} onTerms={() => setStep(AppStep.TERMS)} />}
+        {step === AppStep.HOME && <Home prefs={userPrefs} onStartSession={handleStartSessionFromHome} onViewHistory={() => setStep(AppStep.HISTORY)} onOpenSettings={() => setStep(AppStep.SETUP)} onViewSession={handleViewSession} currentUser={currentUser} authLoading={authLoading} onLogin={loginWithGoogle} onLogout={logout} subscriptionInfo={subscriptionInfo} onOpenPricing={() => setStep(AppStep.PRICING)} onRedeemCode={() => setShowTrialCodeModal(true)} onManageSubscription={async () => { try { const { url } = await subscriptionService.createPortalSession(); window.location.href = url; } catch (e) { console.error(e); } }} onPrivacy={() => setStep(AppStep.PRIVACY)} onTerms={() => setStep(AppStep.TERMS)} />}
+        {step === AppStep.HISTORY && <History onBack={handleGoHome} onViewSession={handleViewSession} />}
         {step === AppStep.PRICING && <PricingPage onBack={handleGoHome} subscriptionInfo={subscriptionInfo} onPrivacy={() => setStep(AppStep.PRIVACY)} onTerms={() => setStep(AppStep.TERMS)} />}
         {step === AppStep.PRIVACY && <PrivacyPolicy onBack={handleGoHome} />}
         {step === AppStep.TERMS && <TermsAndConditions onBack={handleGoHome} />}
