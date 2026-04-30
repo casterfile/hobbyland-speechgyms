@@ -46,12 +46,11 @@
 
 GitHub Actions workflow: `.github/workflows/main_hobbyland-speechgyms.yml`
 
-**Flow:** Push to `main` → Build Docker image → Push to ACR (`:latest` + `:sha`) → Trigger Azure webhook → App Service pulls new image
+**Flow:** Push to `main` → Build Docker image → Push to ACR (`:latest` + `:sha`) → `az login` → `az webapp config container set` to pin App Service to the new SHA → `az webapp restart`.
 
-- **No Azure credentials needed** — uses ACR login + webhook
 - Build pushes two tags: `speechgyms-app:latest` and `speechgyms-app:<commit-sha>`
-- Azure App Service configured with Continuous Deployment webhook
 - GitHub repo: `casterfile/hobbyland-speechgyms`
+- Resource group: `hobbyland-interview-rg` (despite the name, this is also the speechgyms RG)
 
 **GitHub Secrets:**
 | Secret | Purpose |
@@ -59,7 +58,40 @@ GitHub Actions workflow: `.github/workflows/main_hobbyland-speechgyms.yml`
 | ACR_USERNAME | Azure Container Registry login |
 | ACR_PASSWORD | Azure Container Registry password |
 | GEMINI_API_KEY | Google Gemini API key (build-time) |
-| AZURE_WEBHOOK_URL | App Service container webhook URL |
+| AZURE_CREDENTIALS | Service-principal JSON for `azure/login@v2` |
+
+### ⚠️ Known issue: AZURE_CREDENTIALS is currently dead
+
+As of 2026-04-30, the service principal in `AZURE_CREDENTIALS` returns
+`No subscriptions found` at the `Log in to Azure` step. The Docker build/push
+to ACR still succeeds (it uses ACR_USERNAME/ACR_PASSWORD), but the webapp
+update step is skipped, so a green CI run is *not* a deployed run.
+
+**Manual deploy workaround** (run from local where `az` is logged in):
+
+```bash
+SHA=$(git rev-parse HEAD)
+az webapp config container set \
+  --name hobbyland-speechgyms \
+  --resource-group hobbyland-interview-rg \
+  --container-image-name "n8nhobbylandacr.azurecr.io/speechgyms-app:${SHA}"
+az webapp restart \
+  --name hobbyland-speechgyms \
+  --resource-group hobbyland-interview-rg
+```
+
+**Permanent fix:** rotate the service principal and replace `AZURE_CREDENTIALS`
+in the GitHub repo secrets:
+
+```bash
+SUB=$(az account show --query id -o tsv)
+az ad sp create-for-rbac \
+  --name "github-speechgyms-deploy" \
+  --role contributor \
+  --scopes "/subscriptions/$SUB/resourceGroups/hobbyland-interview-rg" \
+  --sdk-auth
+# Paste the JSON output as the AZURE_CREDENTIALS value in repo settings.
+```
 
 ---
 
@@ -352,6 +384,78 @@ All AI calls go through `services/geminiService.ts`:
 | chat_logs | Virtual coach chat history |
 | trial_codes | Promo/trial codes |
 | trial_code_redemptions | Code redemption tracking |
+
+### sessions schema notes
+
+- `user_id` — nullable; null when the user wasn't signed in at save time.
+- `device_id` — nullable text; stable per-browser UUID so anonymous saves stay
+  scoped to the device that made them. Auto-added on backend boot via
+  `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS device_id TEXT`. An index
+  `idx_sessions_device_id` is created alongside.
+
+Pre-existing rows from before the migration have `device_id IS NULL`, so they
+no longer appear to anyone (previously they were visible to *all* anonymous
+viewers — a bug). To revive an old anon session, set its `user_id` manually.
+
+---
+
+## Session History & Save Resilience
+
+### Anonymous + post-login claim flow
+
+Every browser stores a UUID at `localStorage.speechgyms_device_id` and sends
+it as `X-Device-Id` on every API call (`services/authService.ts:getDeviceId`).
+This is the identity used by the backend when the JWT is missing or expired.
+
+**`GET /api/sessions`:**
+- Logged in: returns `WHERE user_id = $userId OR (user_id IS NULL AND device_id = $deviceId)` and *also* runs `claimDeviceSessions` (see below) before the SELECT.
+- Anonymous + device id: returns `WHERE user_id IS NULL AND device_id = $deviceId`.
+- No identity at all: returns `[]` (no more global anon pool).
+
+**`POST /api/sessions`:** stores both `user_id` (nullable) and `device_id`. If
+the user is authed, it also runs `claimDeviceSessions` so the moment they save
+something while signed in, any anonymous rows from this device get attributed
+to them.
+
+**`claimDeviceSessions(userId, deviceId)`** in `backend/index.js`:
+
+```sql
+UPDATE sessions SET user_id = $1
+WHERE user_id IS NULL AND device_id = $2
+```
+
+Triggered on three paths:
+1. `GET /api/sessions` when authed.
+2. `POST /api/sessions` when authed.
+3. `GET /api/auth/me` when called with `X-Device-Id` (this is the natural
+   moment immediately after the OAuth redirect).
+
+### Save retry + offline queue
+
+`services/historyService.ts`:
+
+- `saveHistoryItem` retries the POST once after 800ms.
+- If both attempts fail, the unsaved item is appended to
+  `localStorage.speechgyms_pending_saves` and the function returns
+  `{ ok: false, error }` (instead of swallowing the error like the old
+  fire-and-forget version did).
+- `getHistory` calls `flushPending` first, so opening Recent Sessions is the
+  natural moment we re-try anything queued.
+- `retryPendingSaves` is the manual retry hook used by the Analysis page banner.
+
+### Analysis page banner
+
+When `App.handleSessionFinish` / `handleDebateFinish` get a non-ok save, they
+set `saveError` + `lastUnsavedItem`. The Analysis page renders a red banner
+with a "Retry now" button at the top of the page. The retry calls
+`saveHistoryItem(lastUnsavedItem)`; on success the banner clears.
+
+### History view
+
+`components/History.tsx` renders the full list (up to 50 rows from the API),
+with three states: loading, empty (`There are no sessions yet.`), and populated.
+The Home page hides its "View All" link entirely when `history.length === 0`
+to avoid landing on an empty page.
 
 ---
 
