@@ -140,16 +140,34 @@ export function registerAIRoutes(app) {
     try {
       const { interests = [], goal = '', language = 'English', mode = 'IMPROMPTU', level = 'INTERMEDIATE', eduLevel = 'UNIVERSITY' } = req.body || {};
       const cfg = eduConfig(eduLevel);
-      const prompt = `Generate exactly 1 impromptu speech topic for a ${cfg.target}. Length: 5-12 words. Simple language.
-Topic Interests: ${interests.join(', ') || 'general'}. Goal: ${goal}. Mode: ${mode}. Language: ${language}.
+      const interestList = Array.isArray(interests) ? interests.filter(Boolean) : [];
+      const hasInterests = interestList.length > 0;
+      const interestClause = hasInterests
+        ? `HARD CONSTRAINT: The topic MUST be directly about one of these interests: ${interestList.join(', ')}. Do NOT generate a topic outside this list.`
+        : `Pick any general-interest topic.`;
+      const prompt = `Generate exactly 1 impromptu speech topic for a ${cfg.target}.
+${interestClause}
+Length: 5-12 words. Simple language.
+Goal: ${goal}. Mode: ${mode}. Language: ${language}.
 Output ONLY the topic text, no quotes, no preamble.`;
-      const text = await runClaude({
-        model: FAST_MODEL,
-        system: 'You generate concise speech topics. Output only the requested text, nothing else.',
-        messages: [{ role: 'user', content: prompt }],
-        maxTokens: 100,
-      });
-      res.json({ topic: text.trim().replace(/^["']|["']$/g, '') || 'The Importance of Friendship' });
+      const system = hasInterests
+        ? `You generate concise speech topics that strictly match the user's chosen interest categories. Output only the requested text, nothing else.`
+        : 'You generate concise speech topics. Output only the requested text, nothing else.';
+      let topic = '';
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const text = await runClaude({
+          model: FAST_MODEL,
+          system,
+          messages: [{ role: 'user', content: prompt }],
+          maxTokens: 100,
+        });
+        topic = text.trim().replace(/^["']|["']$/g, '');
+        if (!hasInterests) break;
+        const lc = topic.toLowerCase();
+        const onTopic = interestList.some((tag) => lc.includes(String(tag).toLowerCase()));
+        if (onTopic) break;
+      }
+      res.json({ topic: topic || 'The Importance of Friendship' });
     } catch (e) {
       console.error('[ai] topic error:', e?.message || e);
       res.status(500).json({ error: 'Failed to generate topic', topic: 'The Importance of Friendship' });

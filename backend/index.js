@@ -576,8 +576,8 @@ app.post('/api/sessions', async (req, res) => {
       RETURNING id, created_at`,
       [
         userId,
-        safeStr(s.topic, 500), safeStr(s.mode, 60), safeStr(s.level, 60), safeStr(s.educationLevel, 60),
-        safeStr(s.language, 60), safeInt(s.durationSeconds),
+        safeStr(s.topic, 500), safeStr(s.mode, 200), safeStr(s.level, 200), safeStr(s.educationLevel, 200),
+        safeStr(s.language, 200), safeInt(s.durationSeconds),
         safeInt(s.overallScore), JSON.stringify(s.subScores ?? {}),
         typeof s.transcript === 'string' ? s.transcript : '',
         typeof s.modelAnswer === 'string' ? s.modelAnswer : '',
