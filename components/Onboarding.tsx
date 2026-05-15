@@ -27,8 +27,14 @@ export const Onboarding: React.FC<Props> = ({ onComplete }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-3xl mx-auto p-6 animate-fade-in">
       <div className="text-center mb-8">
+        <img
+          src="/logo.png"
+          alt="SpeechGyms"
+          className="h-14 md:h-16 w-auto mx-auto mb-6"
+          style={{ filter: 'brightness(0) invert(1)' }}
+        />
         <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-blue-500 mb-4">
-          Welcome to InstantSpeech AI
+          Welcome to SpeechGyms
         </h1>
         <p className="text-slate-400 text-lg">
           Select your primary training focus to get started.

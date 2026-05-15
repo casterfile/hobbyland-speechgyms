@@ -109,9 +109,19 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
   return (
     <div className="min-h-screen w-full max-w-5xl mx-auto p-4 md:p-6 pb-20 animate-fade-in flex flex-col gap-8">
       <BrowserCompatBanner />
-      
+
+      {/* Brand */}
+      <div className="flex justify-center md:justify-start mt-4">
+        <img
+          src="/logo.png"
+          alt="SpeechGyms"
+          className="h-10 md:h-12 w-auto"
+          style={{ filter: 'brightness(0) invert(1)' }}
+        />
+      </div>
+
       {/* Header */}
-      <div className="flex justify-between items-center mt-4">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-1">
             Hello, {currentUser ? currentUser.name.split(' ')[0] : 'Speaker'}
