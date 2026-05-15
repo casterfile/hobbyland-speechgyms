@@ -30,8 +30,7 @@ export const Onboarding: React.FC<Props> = ({ onComplete }) => {
         <img
           src="/logo.png"
           alt="SpeechGyms"
-          className="h-14 md:h-16 w-auto mx-auto mb-6"
-          style={{ filter: 'brightness(0) invert(1)' }}
+          className="h-24 w-24 md:h-28 md:w-28 object-contain mx-auto mb-6 rounded-2xl"
         />
         <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-blue-500 mb-4">
           Welcome to SpeechGyms

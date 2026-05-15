@@ -142,19 +142,25 @@ export function registerAIRoutes(app) {
       const cfg = eduConfig(eduLevel);
       const interestList = Array.isArray(interests) ? interests.filter(Boolean) : [];
       const hasInterests = interestList.length > 0;
+      const chosen = hasInterests
+        ? interestList[Math.floor(Math.random() * interestList.length)]
+        : '';
       const interestClause = hasInterests
-        ? `HARD CONSTRAINT: The topic MUST be directly about one of these interests: ${interestList.join(', ')}. Do NOT generate a topic outside this list.`
+        ? `The topic MUST be centered on the subject "${chosen}". The word "${chosen}" or a clear synonym must appear in the topic. Do NOT default to workplace, career, or productivity themes unless "Workplace" is the chosen subject.`
         : `Pick any general-interest topic.`;
       const prompt = `Generate exactly 1 impromptu speech topic for a ${cfg.target}.
 ${interestClause}
 Length: 5-12 words. Simple language.
-Goal: ${goal}. Mode: ${mode}. Language: ${language}.
-Output ONLY the topic text, no quotes, no preamble.`;
+Mode: ${mode}. Language: ${language}.${goal ? ` Speaker goal: ${goal}.` : ''}
+Output ONLY the topic text, no quotes, no preamble, no labels.`;
       const system = hasInterests
-        ? `You generate concise speech topics that strictly match the user's chosen interest categories. Output only the requested text, nothing else.`
+        ? `You generate concise speech topics on the exact subject the user requests. Never substitute a different subject. Output only the topic text.`
         : 'You generate concise speech topics. Output only the requested text, nothing else.';
+      const tagWords = hasInterests
+        ? [chosen.toLowerCase(), ...chosen.toLowerCase().split(/\s+/)].filter((w) => w.length > 2)
+        : [];
       let topic = '';
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < 4; attempt++) {
         const text = await runClaude({
           model: FAST_MODEL,
           system,
@@ -164,7 +170,7 @@ Output ONLY the topic text, no quotes, no preamble.`;
         topic = text.trim().replace(/^["']|["']$/g, '');
         if (!hasInterests) break;
         const lc = topic.toLowerCase();
-        const onTopic = interestList.some((tag) => lc.includes(String(tag).toLowerCase()));
+        const onTopic = tagWords.some((w) => lc.includes(w));
         if (onTopic) break;
       }
       res.json({ topic: topic || 'The Importance of Friendship' });

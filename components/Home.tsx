@@ -111,13 +111,13 @@ export const Home: React.FC<Props> = ({ prefs, onStartSession, onViewHistory, on
       <BrowserCompatBanner />
 
       {/* Brand */}
-      <div className="flex justify-center md:justify-start mt-4">
+      <div className="flex items-center justify-center md:justify-start gap-3 mt-4">
         <img
           src="/logo.png"
           alt="SpeechGyms"
-          className="h-10 md:h-12 w-auto"
-          style={{ filter: 'brightness(0) invert(1)' }}
+          className="h-16 w-16 md:h-20 md:w-20 object-contain rounded-xl"
         />
+        <span className="text-2xl md:text-3xl font-bold text-white tracking-tight">SpeechGyms</span>
       </div>
 
       {/* Header */}
