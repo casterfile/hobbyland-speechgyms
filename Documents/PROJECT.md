@@ -1,13 +1,16 @@
 # SpeakFlow AI - Project Documentation
 
+> ⚠️ **HISTORICAL — Azure topology, retained as reference.**
+> SpeechGyms migrated to Railway + Cloudflare Worker on **2026-06-17**. The Azure App Service is dead and the shared `n8n-hobbyland-pg` Postgres it depended on was deleted. **Read [`../RAILWAY-DEPLOYMENT.md`](../RAILWAY-DEPLOYMENT.md) for current deploy, env vars, and routing.** Everything below describes the old setup.
+
 ## Overview
 
 **SpeakFlow AI** (also referred to as **SpeechGyms**) is an intelligent impromptu speaking coach that simulates real-world pressure and provides deep AI analysis of speech logic, delivery, and structure.
 
 - **Domain:** https://www.speechgyms.com
 - **Created:** March 2026
-- **Current Version:** v1.0.3
-- **Status:** Live on Azure App Service
+- **Current Version:** v1.0.4
+- **Status:** ~~Live on Azure App Service~~ Live on Railway (see RAILWAY-DEPLOYMENT.md)
 
 ---
 
