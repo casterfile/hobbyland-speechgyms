@@ -2,7 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-console.log('%cSpeechGyms v1.0.3', 'color: #6366f1; font-weight: bold; font-size: 14px;');
+// Removed the hardcoded "SpeechGyms v1.0.3" console banner — it was last
+// bumped in April 2026 and misled a debug session on 2026-06-21 into thinking
+// production was running a stale build. Identify bundle versions by the
+// `index-XXX.js` filename hash on the served HTML, not by a manual string.
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
